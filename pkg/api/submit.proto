@@ -46,6 +46,18 @@ message JobCancelRequest {
     string queue = 3;
 }
 
+// swagger:model
+message JobReprioritizeRequest {
+    repeated string job_ids = 1;
+    string job_set_id = 2;
+    string queue = 3;
+}
+
+// swagger:model
+message JobReprioritizeResponse {
+    repeated string reprioritized_ids = 1 [(gogoproto.jsontag) = "reprioritizedIds"];
+}
+
 message JobSubmitResponseItem {
     string job_id = 1;
     string error = 2;
@@ -102,6 +114,12 @@ service Submit {
     rpc CancelJobs (JobCancelRequest) returns (CancellationResult) {
         option (google.api.http) = {
             post: "/v1/job/cancel"
+            body: "*"
+        };
+    }
+    rpc ReprioritizeJobs (JobReprioritizeRequest) returns (JobReprioritizeResponse) {
+        option (google.api.http) = {
+            post: "/v1/job/reprioritize"
             body: "*"
         };
     }
