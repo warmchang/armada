@@ -757,6 +757,10 @@
         "jobSetId": {
           "type": "string"
         },
+        "newPriority": {
+          "type": "number",
+          "format": "double"
+        },
         "queue": {
           "type": "string"
         }
