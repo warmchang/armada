@@ -232,7 +232,7 @@ func (server *SubmitServer) cancelJobs(ctx context.Context, queue string, jobs [
 
 func (server *SubmitServer) ReprioritizeJobs(ctx context.Context, request *api.JobReprioritizeRequest) (*api.JobReprioritizeResponse, error) {
 	// TODO: Implement me
-	return &api.JobReprioritizeResponse{ReprioritizedIds: []string{}}, nil
+	return &api.JobReprioritizeResponse{ReprioritizationErrors: make(map[string]string)}, nil
 }
 
 func (server *SubmitServer) checkQueuePermission(

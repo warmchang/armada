@@ -770,9 +770,9 @@
       "type": "object",
       "title": "swagger:model",
       "properties": {
-        "reprioritizedIds": {
-          "type": "array",
-          "items": {
+        "reprioritizationErrors": {
+          "type": "object",
+          "additionalProperties": {
             "type": "string"
           }
         }

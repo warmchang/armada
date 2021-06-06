@@ -1108,8 +1108,8 @@ namespace GResearch.Armada.Client
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "10.0.27.0 (Newtonsoft.Json v12.0.0.0)")]
     public partial class ApiJobReprioritizeResponse 
     {
-        [Newtonsoft.Json.JsonProperty("reprioritizedIds", Required = Newtonsoft.Json.Required.Default, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
-        public System.Collections.Generic.ICollection<string> ReprioritizedIds { get; set; }
+        [Newtonsoft.Json.JsonProperty("reprioritizationErrors", Required = Newtonsoft.Json.Required.Default, NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
+        public System.Collections.Generic.IDictionary<string, string> ReprioritizationErrors { get; set; }
     
     
     }
