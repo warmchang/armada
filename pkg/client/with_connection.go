@@ -5,14 +5,14 @@ import (
 	"google.golang.org/grpc"
 )
 
-func WithConnection(apiConnectionDetails *ApiConnectionDetails, action func(*grpc.ClientConn)) {
+func WithConnection(apiConnectionDetails *ApiConnectionDetails, action func(*grpc.ClientConn) error) error {
 	conn, err := CreateApiConnection(apiConnectionDetails)
 
 	if err != nil {
 		log.Errorf("Failed to connect to api because %s", err)
-		return
+		return err
 	}
 	defer conn.Close()
 
-	action(conn)
+	return action(conn)
 }

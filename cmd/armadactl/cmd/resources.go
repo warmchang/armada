@@ -27,7 +27,7 @@ var resourcesCmd = &cobra.Command{
 		queue := args[0]
 		jobSetId := args[1]
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 
 			eventsClient := api.NewEventClient(conn)
 			state := client.GetJobSetState(eventsClient, queue, jobSetId, context.Background())
@@ -35,6 +35,7 @@ var resourcesCmd = &cobra.Command{
 			for _, j := range state.GetCurrentState() {
 				log.Infof("job id: %v, maximum used resources: %v", j.Job.Id, j.MaxUsedResources)
 			}
-		})
+			return nil
+		}))
 	},
 }

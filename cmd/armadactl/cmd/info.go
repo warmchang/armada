@@ -28,13 +28,13 @@ var infoCmd = &cobra.Command{
 
 		apiConnectionDetails := client.ExtractCommandlineArmadaApiConnectionDetails()
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 			submitClient := api.NewSubmitClient(conn)
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			queueInfo, e := submitClient.GetQueueInfo(ctx, &api.QueueInfoRequest{queue})
 			if e != nil {
-				exitWithError(e)
+				return e
 			}
 
 			jobSets := queueInfo.ActiveJobSets
@@ -50,6 +50,7 @@ var infoCmd = &cobra.Command{
 			for _, jobSet := range jobSets {
 				log.Infof("in cluster: %d, queued: %d - %s", jobSet.LeasedJobs, jobSet.QueuedJobs, jobSet.Name)
 			}
-		})
+			return nil
+		}))
 	},
 }

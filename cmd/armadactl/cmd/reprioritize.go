@@ -32,12 +32,12 @@ var reprioritizeCmd = &cobra.Command{
 		priorityString := args[0]
 		priority, err := strconv.ParseFloat(priorityString, 64)
 		if err != nil {
-			exitWithError(err)
+			ExitWithError(err)
 		}
 
 		apiConnectionDetails := client.ExtractCommandlineArmadaApiConnectionDetails()
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 			client := api.NewSubmitClient(conn)
 
 			jobId, _ := cmd.Flags().GetString("jobId")
@@ -57,14 +57,15 @@ var reprioritizeCmd = &cobra.Command{
 				NewPriority: priority,
 			})
 			if err != nil {
-				exitWithError(err)
+				return err
 			}
 
 			err = reportResults(result.ReprioritizationResults)
 			if err != nil {
-				exitWithError(err)
+				return err
 			}
-		})
+			return nil
+		}))
 	},
 }
 

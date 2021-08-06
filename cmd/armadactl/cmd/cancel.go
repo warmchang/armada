@@ -30,7 +30,7 @@ var cancelCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		apiConnectionDetails := client.ExtractCommandlineArmadaApiConnectionDetails()
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 			client := api.NewSubmitClient(conn)
 
 			jobId, _ := cmd.Flags().GetString("jobId")
@@ -45,9 +45,10 @@ var cancelCmd = &cobra.Command{
 				Queue:    queue,
 			})
 			if e != nil {
-				exitWithError(e)
+				ExitWithError(e)
 			}
 			log.Infof("Cancellation request submitted for jobs: %s", strings.Join(result.CancelledIds, ", "))
-		})
+			return nil
+		}))
 	},
 }

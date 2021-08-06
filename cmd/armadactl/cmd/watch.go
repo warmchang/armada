@@ -39,7 +39,7 @@ var watchCmd = &cobra.Command{
 
 		apiConnectionDetails := client.ExtractCommandlineArmadaApiConnectionDetails()
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 			eventsClient := api.NewEventClient(conn)
 			client.WatchJobSet(eventsClient, queue, jobSetId, true, context.Background(), func(state *domain.WatchContext, e api.Event) bool {
 				if raw {
@@ -72,7 +72,8 @@ var watchCmd = &cobra.Command{
 				}
 				return false
 			})
-		})
+			return nil
+		}))
 	},
 }
 

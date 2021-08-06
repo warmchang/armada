@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 
 	log "github.com/sirupsen/logrus"
@@ -33,7 +34,7 @@ var analyzeCmd = &cobra.Command{
 
 		apiConnectionDetails := client.ExtractCommandlineArmadaApiConnectionDetails()
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 			eventsClient := api.NewEventClient(conn)
 
 			events := map[string][]*api.Event{}
@@ -46,8 +47,7 @@ var analyzeCmd = &cobra.Command{
 			})
 
 			if jobState == nil {
-				log.Infof("No events found in jobset %s (queue: %s)", jobSetId, queue)
-				return
+				return fmt.Errorf("No events found in jobset %s (queue: %s)", jobSetId, queue)
 			}
 
 			for id, jobInfo := range jobState.GetCurrentState() {
@@ -66,7 +66,7 @@ var analyzeCmd = &cobra.Command{
 					log.Println()
 				}
 			}
-
-		})
+			return nil
+		}))
 	},
 }

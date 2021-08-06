@@ -25,7 +25,7 @@ const integrationEnabledEnvVar = "INTEGRATION_ENABLED"
 func TestCanSubmitJob_ReceivingAllExpectedEvents(t *testing.T) {
 	skipIfIntegrationEnvNotPresent(t)
 
-	client.WithConnection(connectionDetails(), func(connection *grpc.ClientConn) {
+	client.WithConnection(connectionDetails(), func(connection *grpc.ClientConn) error {
 		submitClient := api.NewSubmitClient(connection)
 		eventsClient := api.NewEventClient(connection)
 
@@ -38,13 +38,14 @@ func TestCanSubmitJob_ReceivingAllExpectedEvents(t *testing.T) {
 		assert.True(t, receivedEvents[domain.Leased])
 		assert.True(t, receivedEvents[domain.Running])
 		assert.True(t, receivedEvents[domain.Succeeded])
+		return nil
 	})
 }
 
 func TestCanSubmitJob_IncorrectJobMountFails(t *testing.T) {
 	skipIfIntegrationEnvNotPresent(t)
 
-	client.WithConnection(connectionDetails(), func(connection *grpc.ClientConn) {
+	client.WithConnection(connectionDetails(), func(connection *grpc.ClientConn) error {
 		submitClient := api.NewSubmitClient(connection)
 		eventsClient := api.NewEventClient(connection)
 
@@ -60,13 +61,14 @@ func TestCanSubmitJob_IncorrectJobMountFails(t *testing.T) {
 
 		receivedEvents := submitJobsAndWatch(t, submitClient, eventsClient, jobRequest)
 		assert.True(t, receivedEvents[domain.Failed])
+		return nil
 	})
 }
 
 func TestCanNotSubmitJobToDeletedQueue(t *testing.T) {
 	skipIfIntegrationEnvNotPresent(t)
 
-	client.WithConnection(connectionDetails(), func(connection *grpc.ClientConn) {
+	client.WithConnection(connectionDetails(), func(connection *grpc.ClientConn) error {
 		submitClient := api.NewSubmitClient(connection)
 
 		jobRequest := createJobRequest("personal-anonymous")
@@ -77,13 +79,14 @@ func TestCanNotSubmitJobToDeletedQueue(t *testing.T) {
 
 		_, err = client.SubmitJobs(submitClient, jobRequest)
 		assert.Error(t, err)
+		return nil
 	})
 }
 
 func TestCanSubmitJob_ArmdactlWatchExitOnInactive(t *testing.T) {
 	skipIfIntegrationEnvNotPresent(t)
 	connDetails := connectionDetails()
-	client.WithConnection(connDetails, func(connection *grpc.ClientConn) {
+	client.WithConnection(connDetails, func(connection *grpc.ClientConn) error {
 		submitClient := api.NewSubmitClient(connection)
 		eventsClient := api.NewEventClient(connection)
 
@@ -97,13 +100,14 @@ func TestCanSubmitJob_ArmdactlWatchExitOnInactive(t *testing.T) {
 		submitJobsAndWatch(t, submitClient, eventsClient, jobRequest)
 		err = cmd.Wait()
 		assert.NoError(t, err)
+		return nil
 	})
 }
 
 func TestCanSubmitJob_KubernetesNamespacePermissionsAreRespected(t *testing.T) {
 	skipIfIntegrationEnvNotPresent(t)
 
-	client.WithConnection(connectionDetails(), func(connection *grpc.ClientConn) {
+	client.WithConnection(connectionDetails(), func(connection *grpc.ClientConn) error {
 		submitClient := api.NewSubmitClient(connection)
 		eventsClient := api.NewEventClient(connection)
 
@@ -112,6 +116,7 @@ func TestCanSubmitJob_KubernetesNamespacePermissionsAreRespected(t *testing.T) {
 
 		receivedEvents := submitJobsAndWatch(t, submitClient, eventsClient, jobRequest)
 		assert.True(t, receivedEvents[domain.Failed], "Anonymous user should not have access to default namespace.")
+		return nil
 	})
 }
 

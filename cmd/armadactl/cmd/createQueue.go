@@ -43,14 +43,14 @@ Job priority is evaluated inside queue, queue has its own priority.`,
 		owners, _ := cmd.Flags().GetStringSlice("owners")
 		groups, _ := cmd.Flags().GetStringSlice("groupOwners")
 		resourceLimits, _ := cmd.Flags().GetStringToString("resourceLimits")
-		resourceLimitsFloat, err := convertResourceLimitsToFloat64(resourceLimits)
+		resourceLimitsFloat, err := ConvertResourceLimitsToFloat64(resourceLimits)
 		if err != nil {
-			exitWithError(err)
+			ExitWithError(err)
 		}
 
 		apiConnectionDetails := client.ExtractCommandlineArmadaApiConnectionDetails()
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 			submissionClient := api.NewSubmitClient(conn)
 
 			queue := &api.Queue{
@@ -70,14 +70,15 @@ Job priority is evaluated inside queue, queue has its own priority.`,
 			}
 
 			if err != nil {
-				exitWithError(err)
+				return err
 			}
 			log.Infof("Queue %s created/updated.", queue.Name)
-		})
+			return nil
+		}))
 	},
 }
 
-func convertResourceLimitsToFloat64(resourceLimits map[string]string) (map[string]float64, error) {
+func ConvertResourceLimitsToFloat64(resourceLimits map[string]string) (map[string]float64, error) {
 	resourceLimitsFloat := make(map[string]float64, len(resourceLimits))
 	for resourceName, limit := range resourceLimits {
 		limitFloat, err := strconv.ParseFloat(limit, 64)

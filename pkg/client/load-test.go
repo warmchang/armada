@@ -124,7 +124,7 @@ func (apiLoadTester ArmadaLoadTester) runSubmission(ctx context.Context, submiss
 	submissionComplete = &sync.WaitGroup{}
 	submissionComplete.Add(1)
 
-	go WithConnection(apiLoadTester.apiConnectionDetails, func(connection *grpc.ClientConn) {
+	go WithConnection(apiLoadTester.apiConnectionDetails, func(connection *grpc.ClientConn) error {
 		defer submissionComplete.Done()
 
 		client := api.NewSubmitClient(connection)
@@ -134,7 +134,7 @@ func (apiLoadTester ArmadaLoadTester) runSubmission(ctx context.Context, submiss
 			log.Infof("Queue %s already exists so no need to create it.\n", queue)
 		} else if e != nil {
 			log.Errorf("ERROR: Failed to create queue: %s because: %s\n", queue, e)
-			return
+			return e
 		} else {
 			log.Infof("Queue %s created.\n", queue)
 		}
@@ -179,6 +179,7 @@ func (apiLoadTester ArmadaLoadTester) runSubmission(ctx context.Context, submiss
 			}
 		}
 		close(jobIds)
+		return nil
 	})
 	return jobIds, jobSetId, submissionComplete
 }
@@ -222,7 +223,7 @@ func (apiLoadTester ArmadaLoadTester) monitorJobsUntilCompletion(ctx context.Con
 		}
 		submittedIds = ids
 	}()
-	WithConnection(apiLoadTester.apiConnectionDetails, func(connection *grpc.ClientConn) {
+	WithConnection(apiLoadTester.apiConnectionDetails, func(connection *grpc.ClientConn) error {
 		eventsClient := api.NewEventClient(connection)
 
 		WatchJobSet(eventsClient, queue, jobSetId, true, ctx, func(state *domain.WatchContext, e api.Event) bool {
@@ -239,6 +240,7 @@ func (apiLoadTester ArmadaLoadTester) monitorJobsUntilCompletion(ctx context.Con
 
 			return state.AreJobsFinished(submittedIds)
 		})
+		return nil
 	})
 	return submittedIds
 }
@@ -261,7 +263,7 @@ func createJobSubmitRequestItems(jobDescs []*domain.JobSubmissionDescription) []
 }
 
 func (apiLoadTester ArmadaLoadTester) cancelRemainingJobs(queue string, jobSetId string) {
-	WithConnection(apiLoadTester.apiConnectionDetails, func(connection *grpc.ClientConn) {
+	WithConnection(apiLoadTester.apiConnectionDetails, func(connection *grpc.ClientConn) error {
 		client := api.NewSubmitClient(connection)
 
 		timeout, _ := common.ContextWithDefaultTimeout()
@@ -269,7 +271,8 @@ func (apiLoadTester ArmadaLoadTester) cancelRemainingJobs(queue string, jobSetId
 			JobSetId: jobSetId,
 			Queue:    queue,
 		}
-		_, _ = client.CancelJobs(timeout, cancelRequest)
+		_, err := client.CancelJobs(timeout, cancelRequest)
+		return err
 	})
 }
 

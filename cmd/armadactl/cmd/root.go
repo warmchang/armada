@@ -33,6 +33,10 @@ The location of this file can be passed in using --config argument or picked fro
 `,
 }
 
+func AddTopLevelCommand(cmd *cobra.Command) {
+	rootCmd.AddCommand(cmd)
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -42,13 +46,19 @@ func Execute() {
 	}
 }
 
+func ErrorCheck(e error) {
+	if e != nil {
+		ExitWithError(e)
+	}
+}
+
+func ExitWithError(e error) {
+	log.Error(e)
+	os.Exit(1)
+}
+
 var cfgFile string
 
 func initConfig() {
 	client.LoadCommandlineArgsFromConfigFile(cfgFile)
-}
-
-func exitWithError(e error) {
-	log.Error(e)
-	os.Exit(1)
 }

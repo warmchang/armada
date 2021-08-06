@@ -24,13 +24,14 @@ var deleteQueueCmd = &cobra.Command{
 
 		apiConnectionDetails := client.ExtractCommandlineArmadaApiConnectionDetails()
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 			submissionClient := api.NewSubmitClient(conn)
 			e := client.DeleteQueue(submissionClient, queue)
 			if e != nil {
-				exitWithError(e)
+				return e
 			}
 			log.Infof("Queue %s deleted or did not exist.", queue)
-		})
+			return nil
+		}))
 	},
 }

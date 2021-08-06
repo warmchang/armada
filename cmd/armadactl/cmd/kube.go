@@ -50,7 +50,7 @@ In bash, you can execute it directly like this:
 
 		verb := strings.Join(args, " ")
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 
 			eventsClient := api.NewEventClient(conn)
 			state := client.GetJobSetState(eventsClient, queue, jobSetId, context.Background())
@@ -67,6 +67,7 @@ In bash, you can execute it directly like this:
 			cmd := client.GetKubectlCommand(jobInfo.ClusterId, jobInfo.Job.Namespace, jobId, podNumber, verb)
 
 			fmt.Println(cmd)
-		})
+			return nil
+		}))
 	},
 }

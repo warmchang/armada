@@ -49,7 +49,7 @@ var submitCmd = &cobra.Command{
 		err = util.BindJsonOrYaml(filePath, submitFile)
 
 		if err != nil {
-			exitWithError(err)
+			ExitWithError(err)
 		}
 
 		if dryRun {
@@ -60,18 +60,19 @@ var submitCmd = &cobra.Command{
 
 		requests := client.CreateChunkedSubmitRequests(submitFile.Queue, submitFile.JobSetId, submitFile.Jobs)
 
-		client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) {
+		ErrorCheck(client.WithConnection(apiConnectionDetails, func(conn *grpc.ClientConn) error {
 			submissionClient := api.NewSubmitClient(conn)
 			for _, request := range requests {
 				response, e := client.SubmitJobs(submissionClient, request)
 
 				if e != nil {
-					exitWithError(e)
+					return e
 				}
 
 				summariseResponse(response, request.JobSetId)
 			}
-		})
+			return nil
+		}))
 	},
 }
 
