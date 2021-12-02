@@ -4,6 +4,9 @@ alertmanager:
 grafana:
   enabled: false
 
+kubeStateMetrics:
+  enabled: false
+
 nodeExporter:
   enabled: false
 

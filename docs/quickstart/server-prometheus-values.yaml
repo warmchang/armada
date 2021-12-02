@@ -1,14 +1,21 @@
 alertmanager:
   enabled: false
 
-prometheus:
-  prometheusSpec:
-    serviceMonitorSelectorNilUsesHelmValues: false
-    ruleSelectorNilUsesHelmValues: false
 grafana:
   service:
     type: NodePort
     nodePort: 30001
+
+kubeStateMetrics:
+  enabled: false
+
+nodeExporter:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
 
 prometheusOperator:
   admissionWebhooks:
