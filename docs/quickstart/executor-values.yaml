@@ -1,6 +1,6 @@
 applicationConfig:
   apiConnection:
-    armadaUrl: armada.default.svc.cluster.local:50051
+    armadaUrl: "armada.default.svc.cluster.local:50051"
     ## Please note that this setting is insecure
     ## Do not use this setting in a production environment
     ## This should only be used for the quickstart and local testing
