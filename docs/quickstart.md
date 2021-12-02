@@ -53,9 +53,9 @@ helm repo update
 ```
 
 ## Installation
-This guide will install Armada on 3 local Kubernetes clusters; one server and two executor clusters. 
+This guide will install Armada on a local Kubernetes cluster. 
 
-You should then clone this repository and step into it:
+You should clone this repository and step into it:
 
 ```bash
 git clone https://github.com/G-Research/armada.git
@@ -67,7 +67,7 @@ All commands are intended to be run from the root of the repository.
 ### Server deployment
 
 ```bash
-kind create cluster --name quickstart-armada-server --config ./docs/quickstart/kind-config-server.yaml
+kind create cluster --name quickstart-armada --config ./docs/quickstart/kind-config.yaml
 
 # Set cluster as current context
 kind export kubeconfig --name=quickstart-armada-server
