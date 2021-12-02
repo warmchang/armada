@@ -70,7 +70,7 @@ All commands are intended to be run from the root of the repository.
 kind create cluster --name quickstart-armada --config ./docs/quickstart/kind-config.yaml
 
 # Set cluster as current context
-kind export kubeconfig --name=quickstart-armada-server
+kind export kubeconfig --name=quickstart-armada
 
 # Install Redis
 helm install redis dandydev/redis-ha -f docs/quickstart/redis-values.yaml
@@ -79,61 +79,26 @@ helm install redis dandydev/redis-ha -f docs/quickstart/redis-values.yaml
 helm install nats nats/stan
 
 # Install Prometheus
-helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack -f docs/quickstart/server-prometheus-values.yaml
+helm install server-prometheus prometheus-community/kube-prometheus-stack -f docs/quickstart/server-prometheus-values.yaml
 
 # Install Armada server
 helm install armada-server gresearch/armada -f ./docs/quickstart/server-values.yaml
-
-# Get server IP for executors
-SERVER_IP=$(kubectl get nodes quickstart-armada-server-worker -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
 ```
 
-### Executor deployments
-
-First executor:
+### Executor deployment
 
 ```bash
-kind create cluster --name quickstart-armada-executor-0 --config ./docs/quickstart/kind-config-executor.yaml
-
-# Set cluster as current context
-kind export kubeconfig --name=quickstart-armada-executor-0
-
 # Install Prometheus
-helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack -f docs/quickstart/executor-prometheus-values.yaml
+helm install executor-prometheus prometheus-community/kube-prometheus-stack -f docs/quickstart/executor-prometheus-values.yaml
 
-# Install executor
-helm install armada-executor gresearch/armada-executor --set applicationConfig.apiConnection.armadaUrl="$SERVER_IP:30000" -f docs/quickstart/executor-values.yaml
+# Install Armada Executor
+helm install armada-executor gresearch/armada-executor -f docs/quickstart/executor-values.yaml
 helm install armada-executor-cluster-monitoring gresearch/executor-cluster-monitoring -f docs/quickstart/executor-cluster-monitoring-values.yaml
-
-# Get executor IP for Grafana
-EXECUTOR_0_IP=$(kubectl get nodes quickstart-armada-executor-0-worker -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
-```
-
-Second executor:
-
-```bash
-kind create cluster --name quickstart-armada-executor-1 --config ./docs/quickstart/kind-config-executor.yaml
-
-# Set cluster as current context
-kind export kubeconfig --name=quickstart-armada-executor-1
-
-# Install Prometheus
-helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack -f docs/quickstart/executor-prometheus-values.yaml
-
-# Install executor
-helm install armada-executor gresearch/armada-executor --set applicationConfig.apiConnection.armadaUrl="$SERVER_IP:30000" -f docs/quickstart/executor-values.yaml
-helm install armada-executor-cluster-monitoring gresearch/executor-cluster-monitoring -f docs/quickstart/executor-cluster-monitoring-values.yaml
-
-# Get executor IP for Grafana
-EXECUTOR_1_IP=$(kubectl get nodes quickstart-armada-executor-1-worker -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
 ```
 
 ### Armada Lookout UI
 
 ```bash
-# Set cluster as current context
-kind export kubeconfig --name=quickstart-armada-server
-
 # Install postgres
 helm install postgres bitnami/postgresql --set postgresqlPassword=psw
 
@@ -146,7 +111,7 @@ helm install lookout gresearch/armada-lookout -f docs/quickstart/lookout-values.
 
 You can view the UI by running the following:
 ```bash
-kubectl port-forward svc/armada-lookout 8080:8080
+kubectl port-forward svc/armada-lookout --address 0.0.0.0 8080:8080
 ```
 You will be able to view Lookout at `http://localhost:8080`.
 
