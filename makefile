@@ -42,8 +42,15 @@ export SHELLOPTS:=$(if $(SHELLOPTS),$(SHELLOPTS):)pipefail:errexit
 gobuildlinux = GOOS=linux GARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w"
 gobuild = go build
 
+SERVER_BUILD_PACKAGE := github.com/G-Research/armada/internal/armada/build
+define SERVER_LDFLAGS
+-X '$(SERVER_BUILD_PACKAGE).BuildTime=$(BUILD_TIME)' \
+-X '$(SERVER_BUILD_PACKAGE).ReleaseVersion=$(RELEASE_VERSION)' \
+-X '$(SERVER_BUILD_PACKAGE).GitCommit=$(GIT_COMMIT)' \
+-X '$(SERVER_BUILD_PACKAGE).GoVersion=$(GO_VERSION)'
+endef
 build-server:
-	$(gobuild) -o ./bin/server cmd/armada/main.go
+	$(gobuild) -ldflags="$(ARMADACTL_LDFLAGS)" -o ./bin/server cmd/armada/main.go
 
 build-executor:
 	$(gobuild) -o ./bin/executor cmd/executor/main.go
