@@ -9,7 +9,7 @@ func WithConnection(apiConnectionDetails *ApiConnectionDetails, action func(*grp
 	conn, err := CreateApiConnection(apiConnectionDetails)
 
 	if err != nil {
-		log.Errorf("Failed to connect to api because %s", err)
+		log.Errorf("Error connecting to API: %s", err)
 		return
 	}
 	defer conn.Close()
