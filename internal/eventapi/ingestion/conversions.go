@@ -4,14 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/G-Research/armada/internal/common/database"
-
 	"github.com/gogo/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/G-Research/armada/internal/common/compress"
 	"github.com/G-Research/armada/internal/common/eventutil"
-	"github.com/G-Research/armada/internal/eventapi/eventdb"
 	"github.com/G-Research/armada/internal/eventapi/model"
 	"github.com/G-Research/armada/internal/pulsarutils"
 	"github.com/G-Research/armada/pkg/armadaevents"
@@ -19,7 +16,6 @@ import (
 
 // MessageRowConverter raw converts pulsar messages into events that we can insert into the database
 type MessageRowConverter struct {
-	eventDb    *eventdb.EventDb
 	compressor compress.Compressor
 }
 
@@ -39,8 +35,8 @@ func (rc *MessageRowConverter) ConvertBatch(ctx context.Context, batch []*pulsar
 
 	// First unmarshall everything
 	messageIds := make([]*pulsarutils.ConsumerMessageId, len(batch))
-	eventSequences := make([]*armadaevents.EventSequence, len(batch))
-	jobsetsByKey := make(map[model.QueueJobsetPair]bool)
+	events := make([]*model.Event, 0, len(batch))
+
 	for i, msg := range batch {
 
 		pulsarMsg := msg.Message
@@ -75,58 +71,32 @@ func (rc *MessageRowConverter) ConvertBatch(ctx context.Context, batch []*pulsar
 				event.Created = &t
 			}
 		}
-		eventSequences[i] = es
-		jobsetsByKey[model.QueueJobsetPair{Queue: es.Queue, Jobset: es.JobSetName}] = true
-	}
 
-	distinctJobsets := make([]model.QueueJobsetPair, 0, len(jobsetsByKey))
-	for k := range jobsetsByKey {
-		distinctJobsets = append(distinctJobsets, k)
-	}
-	mappingsObj, err := database.QueryWithDatabaseRetry(func() (interface{}, error) {
-		return rc.eventDb.GetOrCreateJobsetIds(ctx, distinctJobsets)
-	})
-	if err != nil {
-		log.WithError(err).Warnf("Error mapping jobsets")
-		return &model.BatchUpdate{MessageIds: messageIds, Events: nil}
-	}
-	mappings := mappingsObj.(map[model.QueueJobsetPair]int64)
+		// Remove the jobset Name and the queue from the proto as this wil be stored as the key in the db
+		queue := es.Queue
+		jobset := es.JobSetName
+		es.JobSetName = ""
+		es.Queue = ""
 
-	// Finally construct event rows
-	eventRows := make([]*model.EventRow, 0, len(eventSequences))
-	for i, es := range eventSequences {
-
-		if es != nil {
-
-			jobsetId, present := mappings[model.QueueJobsetPair{Queue: es.Queue, Jobset: es.JobSetName}]
-
-			if !present {
-				log.Warnf("Could not map queue=%s, jobset=%s to internal id. Skipping msg %s", es.Queue, es.JobSetName, batch[i].Message.ID())
-				continue
-			}
-
-			// Remove the jobset Name and the queue from the proto as we're storing this in the db
-			es.JobSetName = ""
-			es.Queue = ""
-
-			dbEvent := &armadaevents.DatabaseSequence{EventSequence: es}
-
-			bytes, err := proto.Marshal(dbEvent)
-			if err != nil {
-
-			}
-			protoBytes, err := rc.compressor.Compress(bytes)
-			if err != nil {
-				log.WithError(err).Warnf("Could not compress proto for msg %s", batch[i].Message.ID())
-			}
-			eventRows = append(eventRows, &model.EventRow{
-				JobSetId: jobsetId,
-				SeqNo:    int64(*batch[i].Message.Index()),
-				Event:    protoBytes,
-			})
+		bytes, err := proto.Marshal(&armadaevents.DatabaseSequence{EventSequence: es})
+		if err != nil {
+			log.WithError(err).Warnf("Could not compress proto for msg %s", batch[i].Message.ID())
+		}
+		compressedBytes, err := rc.compressor.Compress(bytes)
+		if err != nil {
+			log.WithError(err).Warnf("Could not compress proto for msg %s", batch[i].Message.ID())
 		}
 
+		events = append(events, &model.Event{
+			Queue:  queue,
+			Jobset: jobset,
+			Event:  compressedBytes,
+		})
 	}
 
-	return &model.BatchUpdate{MessageIds: messageIds, Events: eventRows}
+	return &model.BatchUpdate{
+		MessageIds: messageIds,
+		Events:     events,
+	}
+
 }

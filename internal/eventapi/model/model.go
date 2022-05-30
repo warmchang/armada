@@ -4,65 +4,20 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/G-Research/armada/internal/pulsarutils"
 )
 
-// EventRow represents an Event in the Postgres Database
-type EventRow struct {
-	JobSetId int64
-	SeqNo    int64
-	Event    []byte
-}
-
-// JobsetRow represents a Jobset in the Postgres Database
-// Essentially this is a mapping from (jobsetName, queue) ->  int64 which means
-// We can store int64s rather than long strings
-type JobsetRow struct {
-	JobSetId int64
-	Queue    string
-	Jobset   string
-	Created  time.Time
-}
-
-// SeqNoRow represents a Sequence Number in the Postgres Database
-// This enables us to keep track of the latest available event for each jobset
-type SeqNoRow struct {
-	JobSetId   int64
-	SeqNo      int64
-	UpdateTime time.Time
-}
-
-// QueueJobsetPair holds a queue and a jobset, which is the compound key of armada jobsets
-type QueueJobsetPair struct {
-	Queue  string
-	Jobset string
-}
-
 // BatchUpdate represents an Event Row along with information about the originating pulsar message
 type BatchUpdate struct {
 	MessageIds []*pulsarutils.ConsumerMessageId
-	Events     []*EventRow
+	Events     []*Event
 }
 
-// EventSubscription represents a single subscription to a stream of events
-type EventSubscription struct {
-	SubscriptionId int64
-	Channel        chan []*EventRow
-}
-
-// EventRequest represents a request for new Event rows form the database
-type EventRequest struct {
-	SubscriptionId int64 // The subscriber who originated the request
-	Jobset         int64 // The id of the jobset they want events for
-	Sequence       int64 // Only return  events after this sequence number
-}
-
-// EventResponse represents a response to the EventRequest
-type EventResponse struct {
-	SubscriptionId int64       // The subscriber who originated the request
-	Events         []*EventRow // Returned Events
+type Event struct {
+	Queue  string
+	Jobset string
+	Event  []byte
 }
 
 // ExternalSeqNo is a sequence number that we pass to end users
