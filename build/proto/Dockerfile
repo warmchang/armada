@@ -11,6 +11,8 @@ ARG GOIMPORTS_VERSION=0.0.0-20200529172331-a64b76657301
 # We download the protoc binary from Maven. Set this argument to use an alternate Maven repo.
 ARG MAVEN_URL=https://repo1.maven.org/maven2
 
+ARG NUGET_URL=https://www.nuget.org/api/v2/package
+
 # We check the sha1 of the downloaded protoc binary, which must be added here manually, e.g., from
 # https://repo1.maven.org/maven2/com/google/protobuf/protoc/
 ARG PROTOC_VERSION=3.17.3
@@ -34,10 +36,21 @@ ENV GOPRIVATE=$GOPRIVATE
 ARG PROTOC_VERSION
 ARG PROTOC_SHA1
 ARG MAVEN_URL
+ARG NUGET_URL
+
+RUN apt-get update -y
+RUN apt-get install -y unzip
+
 RUN curl -OLk ${MAVEN_URL}/com/google/protobuf/protoc/${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.exe && \
     mv protoc-${PROTOC_VERSION}-linux-x86_64.exe /usr/local/bin/protoc && \
     echo "${PROTOC_SHA1} /usr/local/bin/protoc" | sha1sum -c - && \
     chmod +x /usr/local/bin/protoc
+
+# Install the csharp grpc plugin
+RUN curl -sSL https://www.nuget.org/api/v2/package/Grpc.Tools/2.46.3 --output grpctools.zip && \
+    unzip -q -d grpctools grpctools.zip && \
+    mv grpctools/tools/linux_x64/grpc_csharp_plugin /usr/local/bin/grpc_csharp_plugin && \
+    chmod +x /usr/local/bin/grpc_csharp_plugin
 
 # Remove after I copy proto files
 ARG GOGO_PROTOBUF_VERSION

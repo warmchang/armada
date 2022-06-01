@@ -11,6 +11,7 @@ import "pkg/api/submit.proto";
 
 import "k8s.io/api/networking/v1/generated.proto";
 
+option csharp_namespace = "GResearch.Armada.Api";
 option (gogoproto.goproto_stringer_all) = false;
 option (gogoproto.stringer_all) = true;
 

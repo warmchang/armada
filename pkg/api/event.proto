@@ -9,6 +9,7 @@ import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 import "k8s.io/apimachinery/pkg/api/resource/generated.proto";
 
+option csharp_namespace = "GResearch.Armada.Api";
 option (gogoproto.goproto_stringer_all) = false;
 option (gogoproto.stringer_all) = true;
 
