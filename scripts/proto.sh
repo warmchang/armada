@@ -17,8 +17,8 @@ protoc \
 --proto_path=. \
 --proto_path=/proto \
 --plugin=protoc-gen-grpc=/usr/local/bin/grpc_csharp_plugin \
---grpc_out=client/DotNet/Armada.Client/generated \
---csharp_out=client/DotNet/Armada.Client/generated \
+--grpc_out=client/DotNet.gRPC/Armada.Client.Grpc/generated \
+--csharp_out=client/DotNet.gRPC/Armada.Client.Grpc/generated \
     google/api/annotations.proto \
     google/api/http.proto \
     pkg/api/event.proto pkg/api/queue.proto pkg/api/submit.proto \
@@ -28,7 +28,7 @@ protoc \
 # which forces files to be created in different directories and thus gets round multiple "generated.cs" files being created
 protoc \
 --proto_path=/proto \
---csharp_out=client/DotNet/Armada.Client/generated \
+--csharp_out=client/DotNet.gRPC/Armada.Client.Grpc/generated \
 --csharp_opt=base_namespace=K8S.Io \
     k8s.io/api/core/v1/generated.proto \
     k8s.io/apimachinery/pkg/api/resource/generated.proto \
