@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armada.Client", "Armada.Cli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armada.Client.Test", "Armada.Client.Test\Armada.Client.Test.csproj", "{FFF216CF-27D6-4E56-B472-30092FF6AE4D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Armada.Client.Grpc.Generated", "Armada.Client.Grpc.Generated\Armada.Client.Grpc.Generated.csproj", "{1E1A5D73-1FED-4FF7-B300-17C079BAEBC2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{FFF216CF-27D6-4E56-B472-30092FF6AE4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FFF216CF-27D6-4E56-B472-30092FF6AE4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FFF216CF-27D6-4E56-B472-30092FF6AE4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E1A5D73-1FED-4FF7-B300-17C079BAEBC2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E1A5D73-1FED-4FF7-B300-17C079BAEBC2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E1A5D73-1FED-4FF7-B300-17C079BAEBC2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E1A5D73-1FED-4FF7-B300-17C079BAEBC2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
