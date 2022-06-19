@@ -1,3 +1,4 @@
+#!/bin/bash
 # This script is intended to be run under the docker container at $ARMADADIR/build/python-api-client/
 
 # make the python package armada.client, not pkg.api
@@ -23,6 +24,7 @@ python3 -m grpc_tools.protoc -I. --python_out=../client/python/armada_client --g
 
 cd ..
 # This hideous code is because we can't use python package option in grpc.
+# See https://github.com/protocolbuffers/protobuf/issues/7061 for an explanation.
 # We need to import these packages as a module.
 sed -i 's/from armada/from armada_client.armada/g' client/python/armada_client/armada/*.py
 sed -i 's/from github.com/from armada_client.github.com/g' client/python/armada_client/armada/*.py
@@ -32,5 +34,5 @@ sed -i 's/from google.api/from armada_client.google.api/g' client/python/armada_
 find client/python/armada_client/ -name '*.py' | xargs sed -i 's/from k8s.io/from armada_client.k8s.io/g'
 
 cd client/python/armada_client
-#poetry install
-#poetry build
+poetry install
+poetry build

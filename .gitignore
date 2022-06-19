@@ -55,6 +55,5 @@ client/python/dist
 *_pb2.py
 *_pb2_grpc.py
 armada/
-
-# Generated dotnet code
-client/DotNet.gRPC/Armada.Client.Grpc/generated/
+.tox
+client/python/docs/build/
