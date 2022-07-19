@@ -171,6 +171,7 @@ jobs:
       - run:
           name: Prepare reports
           command: make junit-report
+          when: always
 
       - store_test_results:
           path: test_reports/junit.xml
@@ -226,10 +227,14 @@ jobs:
       - run:
           name: e2e test environment teardown
           command: make tests-e2e-teardown
+          
+      - run:
+          name: Prepare reports
+          command: make junit-report
+          when: always
 
-      - store_artifacts:
-          path: bin/armadactl
-          destination: armadactl
+      - store_test_results:
+          path: test_reports/junit.xml
 
       - run:
           name: Push Image
@@ -259,6 +264,9 @@ jobs:
             docker tag armadactl gresearchdev/armada-armadactl-dev:${TAG}
             docker push gresearchdev/armada-armadactl-dev:${TAG}
 
+            docker tag testsuite gresearchdev/armada-testsuite-dev:${TAG}
+            docker push gresearchdev/armada-testsuite-dev:${TAG}
+
             docker tag armada-load-tester gresearchdev/armada-load-tester-dev:${TAG}
             docker push gresearchdev/armada-load-tester-dev:${TAG}
 
@@ -270,9 +278,6 @@ jobs:
 
             docker tag armada-lookout-ingester gresearchdev/armada-lookout-ingester-dev:${TAG}
             docker push gresearchdev/armada-lookout-ingester-dev:${TAG}
-            
-            docker tag armada-eventapi-ingester gresearchdev/armada-eventapi-ingester-dev:${TAG}
-            docker push gresearchdev/armada-eventapi-ingester-dev:${TAG}
 
             docker tag armada-binoculars gresearchdev/armada-binoculars-dev:${TAG}
             docker push gresearchdev/armada-binoculars-dev:${TAG}
@@ -352,6 +357,10 @@ jobs:
             docker pull gresearchdev/armada-armadactl-dev:${TAG}
             docker tag gresearchdev/armada-armadactl-dev:${TAG} gresearchdev/armada-armadactl:${RELEASE_TAG}
             docker push gresearchdev/armada-armadactl:${RELEASE_TAG}
+
+            docker pull gresearchdev/armada-testsuite-dev:${TAG}
+            docker tag gresearchdev/armada-testsuite-dev:${TAG} gresearchdev/armada-testsuite:${RELEASE_TAG}
+            docker push gresearchdev/armada-testsuite:${RELEASE_TAG}
 
             docker pull gresearchdev/armada-lookout-dev:${TAG}
             docker tag gresearchdev/armada-lookout-dev:${TAG} gresearchdev/armada-lookout:${RELEASE_TAG}

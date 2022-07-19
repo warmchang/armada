@@ -19,24 +19,18 @@ type JobManager struct {
 	jobContext      job.JobContext
 	eventReporter   reporter.EventReporter
 	jobLeaseService LeaseService
-	minimumPodAge   time.Duration
-	failedPodExpiry time.Duration
 }
 
 func NewJobManager(
 	clusterIdentity context2.ClusterIdentity,
 	jobContext job.JobContext,
 	eventReporter reporter.EventReporter,
-	jobLeaseService LeaseService,
-	minimumPodAge time.Duration,
-	failedPodExpiry time.Duration) *JobManager {
+	jobLeaseService LeaseService) *JobManager {
 	return &JobManager{
 		clusterIdentity: clusterIdentity,
 		jobContext:      jobContext,
 		eventReporter:   eventReporter,
-		jobLeaseService: jobLeaseService,
-		minimumPodAge:   minimumPodAge,
-		failedPodExpiry: failedPodExpiry}
+		jobLeaseService: jobLeaseService}
 }
 
 func (m *JobManager) ManageJobLeases() {
@@ -52,8 +46,18 @@ func (m *JobManager) ManageJobLeases() {
 	for _, chunk := range chunkedJobs {
 		failedJobs, err := m.jobLeaseService.RenewJobLeases(chunk)
 		if err == nil && len(failedJobs) > 0 {
-			m.reportTerminated(extractPods(failedJobs))
-			m.jobContext.DeleteJobs(failedJobs)
+			// This happens in case of lease being revoked - normally due to cancellation
+			// In which case, we should delete the job
+			jobsToDelete := filterRunningJobs(failedJobs, func(runningJob *job.RunningJob) bool {
+				for _, pod := range runningJob.ActivePods {
+					if !util.IsInTerminalState(pod) {
+						return true
+					}
+				}
+				return false
+			})
+			m.reportTerminated(extractPods(jobsToDelete))
+			m.jobContext.DeleteJobs(jobsToDelete)
 		}
 	}
 
@@ -66,9 +70,6 @@ func (m *JobManager) ManageJobLeases() {
 			return
 		}
 	}
-
-	jobsToCleanup := filterRunningJobs(jobs, m.canBeRemoved)
-	m.jobContext.DeleteJobs(jobsToCleanup)
 
 	m.handlePodIssues(jobs)
 }
@@ -99,34 +100,6 @@ func (m *JobManager) reportTerminated(pods []*v1.Pod) {
 			}
 		})
 	}
-}
-
-func (m *JobManager) canBeRemoved(job *job.RunningJob) bool {
-	for _, pod := range job.ActivePods {
-		if !m.canPodBeRemoved(pod) {
-			return false
-		}
-	}
-	return true
-}
-
-func (m *JobManager) canPodBeRemoved(pod *v1.Pod) bool {
-	if !util.IsPodFinishedAndReported(pod) {
-		return false
-	}
-
-	lastContainerStart := util.FindLastContainerStartTime(pod)
-	if lastContainerStart.Add(m.minimumPodAge).After(time.Now()) {
-		return false
-	}
-
-	if pod.Status.Phase == v1.PodFailed {
-		lastChange, err := util.LastStatusChange(pod)
-		if err == nil && lastChange.Add(m.failedPodExpiry).After(time.Now()) {
-			return false
-		}
-	}
-	return true
 }
 
 func (m *JobManager) handlePodIssues(allRunningJobs []*job.RunningJob) {

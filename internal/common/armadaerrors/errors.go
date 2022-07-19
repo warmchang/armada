@@ -43,10 +43,119 @@ type ErrNoPermission struct {
 	Message string
 }
 
-// retryablePostgresErrors represents set of postgres errors that can be retried. Fundamentally these are all
-//issues with postgres itself, with the network or with authentication
-var retryablePostgresErrors = map[string]bool{
+func (err *ErrNoPermission) Error() (s string) {
+	if err.Action != "" {
+		s = fmt.Sprintf("%s lacks permission %s required for action %s", err.Principal, err.Permission, err.Action)
+	} else {
+		s = fmt.Sprintf("%s lacks permission %s", err.Principal, err.Permission)
+	}
+	if err.Message != "" {
+		s += fmt.Sprintf("; %s", err.Message)
+	}
+	return
+}
 
+// ErrAlreadyExists is a generic error to be returned whenever some resource already exists.
+// Type and Message are optional and are omitted from the error message if not provided.
+type ErrAlreadyExists struct {
+	Type    string // Resource type, e.g., "queue" or "user"
+	Value   string // Resource name, e.g., "Bob"
+	Message string // An optional message to include in the error message
+}
+
+func (err *ErrAlreadyExists) Error() (s string) {
+	if err.Type != "" {
+		s = fmt.Sprintf("resource %q of type %q already exists", err.Value, err.Type)
+	} else {
+		s = fmt.Sprintf("resource %q already exists", err.Value)
+	}
+	if err.Message != "" {
+		return s + fmt.Sprintf("; %s", err.Message)
+	}
+	return s
+}
+
+// ErrNotFound is a generic error to be returned whenever some resource isn't found.
+// Type and Message are optional and are omitted from the error message if not provided.
+//
+// See ErrAlreadyExists for more info.
+type ErrNotFound struct {
+	Type    string
+	Value   string
+	Message string
+}
+
+func (err *ErrNotFound) Error() (s string) {
+	if err.Type != "" {
+		s = fmt.Sprintf("resource %q of type %q does not exist", err.Value, err.Type)
+	} else {
+		s = fmt.Sprintf("resource %q does not exist", err.Value)
+	}
+	if err.Message != "" {
+		return s + fmt.Sprintf("; %s", err.Message)
+	} else {
+		return s
+	}
+}
+
+// ErrInvalidArgument is a generic error to be returned on invalid argument.
+// Message is optional and is omitted from the error message if not provided.
+type ErrInvalidArgument struct {
+	Name    string      // Name of the field referred to, e.g., "priorityFactor"
+	Value   interface{} // The invalid value that was provided
+	Message string      // An optional message to include with the error message, e.g., explaining why the value is invalid
+}
+
+func (err *ErrInvalidArgument) Error() string {
+	if err.Message == "" {
+		return fmt.Sprintf("value %q is invalid for field %q", err.Value, err.Name)
+	}
+	return fmt.Sprintf("value %q is invalid for field %q; %s", err.Value, err.Name, err.Message)
+}
+
+// ErrMaxRetriesExceeded is an error that indicates we have retried an operation so many times that we have given up
+// The internal error should contain the last error before giving up
+type ErrMaxRetriesExceeded struct {
+	Message   string
+	LastError error
+}
+
+func (e *ErrMaxRetriesExceeded) Error() string {
+	if e.Message == "" {
+		return e.LastError.Error()
+	}
+	if e.LastError == nil {
+		return e.Message
+	}
+	return fmt.Sprintf("%s: %s", e.Message, e.LastError.Error())
+}
+
+func (e *ErrMaxRetriesExceeded) Unwrap() error {
+	return e.LastError
+}
+
+// ErrCreateResource indicates that some Kubernetes rresource could not be created.
+// It's used in the executor.
+type ErrCreateResource struct {
+	// Resource attempting to create, e.g., pod or service.
+	Type string
+	// Resource name.
+	Name string
+	// Optional error message.
+	Message string
+}
+
+func (err *ErrCreateResource) Error() string {
+	if err.Message == "" {
+		return fmt.Sprintf("failed to create %s with name %s", err.Type, err.Name)
+	} else {
+		return fmt.Sprintf("failed to create %s with name %s; %s", err.Type, err.Name, err.Message)
+	}
+}
+
+// retryablePostgresErrors represents set of postgres errors that can be retried. Fundamentally these are all
+// issues with postgres itself, with the network or with authentication
+var retryablePostgresErrors = map[string]bool{
 	// Connection issues
 	pgerrcode.ConnectionException:                           true,
 	pgerrcode.ConnectionDoesNotExist:                        true,
@@ -134,103 +243,9 @@ var retryablePostgresErrors = map[string]bool{
 	pgerrcode.IndexCorrupted: true,
 }
 
-func (err *ErrNoPermission) Error() (s string) {
-	if err.Action != "" {
-		s = fmt.Sprintf("%s lacks permission %s required for action %s", err.Principal, err.Permission, err.Action)
-	} else {
-		s = fmt.Sprintf("%s lacks permission %s", err.Principal, err.Permission)
-	}
-	if err.Message != "" {
-		s = s + fmt.Sprintf("; %s", err.Message)
-	}
-	return
-}
-
-// ErrAlreadyExists is a generic error to be returned whenever some resource already exists.
-// Type and Message are optional and are omitted from the error message if not provided.
-type ErrAlreadyExists struct {
-	Type    string // Resource type, e.g., "queue" or "user"
-	Value   string // Resource name, e.g., "Bob"
-	Message string // An optional message to include in the error message
-}
-
-func (err *ErrAlreadyExists) Error() (s string) {
-	if err.Type != "" {
-		s = fmt.Sprintf("resource %q of type %q already exists", err.Value, err.Type)
-	} else {
-		s = fmt.Sprintf("resource %q already exists", err.Value)
-	}
-	if err.Message != "" {
-		return s + fmt.Sprintf("; %s", err.Message)
-	} else {
-		return s
-	}
-}
-
-// ErrNotFound is a generic error to be returned whenever some resource isn't found.
-// Type and Message are optional and are omitted from the error message if not provided.
-//
-// See ErrAlreadyExists for more info.
-type ErrNotFound struct {
-	Type    string
-	Value   string
-	Message string
-}
-
-func (err *ErrNotFound) Error() (s string) {
-	if err.Type != "" {
-		s = fmt.Sprintf("resource %q of type %q does not exist", err.Value, err.Type)
-	} else {
-		s = fmt.Sprintf("resource %q does not exist", err.Value)
-	}
-	if err.Message != "" {
-		return s + fmt.Sprintf("; %s", err.Message)
-	} else {
-		return s
-	}
-}
-
-// ErrInvalidArgument is a generic error to be returned on invalid argument.
-// Message is optional and is omitted from the error message if not provided.
-type ErrInvalidArgument struct {
-	Name    string      // Name of the field referred to, e.g., "priorityFactor"
-	Value   interface{} // The invalid value that was provided
-	Message string      // An optional message to include with the error message, e.g., explaining why the value is invalid
-}
-
-func (err *ErrInvalidArgument) Error() string {
-	if err.Message == "" {
-		return fmt.Sprintf("value %q is invalid for field %q", err.Value, err.Name)
-	} else {
-		return fmt.Sprintf("value %q is invalid for field %q; %s", err.Value, err.Name, err.Message)
-	}
-}
-
-// ErrMaxRetriesExceeded is an error that indicates we have retried an operation so many times that we have given up
-// The internal error should contain the last error before giving up
-type ErrMaxRetriesExceeded struct {
-	Message   string
-	LastError error
-}
-
-func (e *ErrMaxRetriesExceeded) Error() string {
-	if e.Message == "" {
-		return e.LastError.Error()
-	}
-	if e.LastError == nil {
-		return e.Message
-	}
-	return fmt.Sprintf("%s: %s", e.Message, e.LastError.Error())
-}
-
-func (e *ErrMaxRetriesExceeded) Unwrap() error {
-	return e.LastError
-}
-
 // CodeFromError maps error types to gRPC return codes.
 // Uses errors.As to look through the chain of errors, as opposed to just considering the topmost error in the chain.
 func CodeFromError(err error) codes.Code {
-
 	// Check if the error is a gRPC status and, if so, return the embedded code.
 	// If the error is nil, this returns an OK status code.
 	if s, ok := status.FromError(err); ok {
@@ -295,7 +310,6 @@ var PULSAR_CONNECTION_ERRORS = []pulsar.Result{
 // For details, see
 // https://stackoverflow.com/questions/22761562/portable-way-to-detect-different-kinds-of-network-error
 func IsNetworkError(err error) bool {
-
 	// Return immediately on nil.
 	if err == nil {
 		return false
@@ -441,7 +455,6 @@ func StreamServerInterceptor(maxErrorSize uint) grpc.StreamServerInterceptor {
 }
 
 func IsRetryablePostgresError(err error) bool {
-
 	// Return immediately on nil.
 	if err == nil {
 		return false
@@ -490,13 +503,13 @@ func (err *ErrPodUnschedulable) Error() string {
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "can't schedule pod on any node type; ")
+	_, _ = fmt.Fprintf(&b, "can't schedule pod on any node type: ")
 	i := 0
 	for reason, count := range err.countFromReason {
-		fmt.Fprintf(&b, "%d node type(s) excluded because %s", count, reason)
+		_, _ = fmt.Fprintf(&b, "%d node type(s) excluded because %s", count, reason)
 		i++
 		if i < len(err.countFromReason) {
-			fmt.Fprintf(&b, ", ")
+			_, _ = fmt.Fprintf(&b, ", ")
 		}
 	}
 	return b.String()

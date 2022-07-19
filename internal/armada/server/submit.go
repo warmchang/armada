@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/strings/slices"
 
 	"github.com/G-Research/armada/internal/armada/configuration"
 	"github.com/G-Research/armada/internal/armada/permissions"
@@ -136,6 +137,25 @@ func (server *SubmitServer) CreateQueue(ctx context.Context, request *api.Queue)
 	return &types.Empty{}, nil
 }
 
+func (server *SubmitServer) CreateQueues(ctx context.Context, request *api.QueueList) (*api.BatchQueueCreateResponse, error) {
+	failedQueues := []*api.QueueCreateResponse{}
+
+	// Create a queue for each element of the request body and return the failures.
+	for _, queue := range request.Queues {
+		_, err := server.CreateQueue(ctx, queue)
+		if err != nil {
+			failedQueues = append(failedQueues, &api.QueueCreateResponse{
+				Queue: queue,
+				Error: err.Error(),
+			})
+		}
+	}
+
+	return &api.BatchQueueCreateResponse{
+		FailedQueues: failedQueues,
+	}, nil
+}
+
 func (server *SubmitServer) UpdateQueue(ctx context.Context, request *api.Queue) (*types.Empty, error) {
 	err := checkPermission(server.permissions, ctx, permissions.CreateQueue)
 	var ep *ErrNoPermission
@@ -159,6 +179,25 @@ func (server *SubmitServer) UpdateQueue(ctx context.Context, request *api.Queue)
 	}
 
 	return &types.Empty{}, nil
+}
+
+func (server *SubmitServer) UpdateQueues(ctx context.Context, request *api.QueueList) (*api.BatchQueueUpdateResponse, error) {
+	failedQueues := []*api.QueueUpdateResponse{}
+
+	// Create a queue for each element of the request body and return the failures.
+	for _, queue := range request.Queues {
+		_, err := server.UpdateQueue(ctx, queue)
+		if err != nil {
+			failedQueues = append(failedQueues, &api.QueueUpdateResponse{
+				Queue: queue,
+				Error: err.Error(),
+			})
+		}
+	}
+
+	return &api.BatchQueueUpdateResponse{
+		FailedQueues: failedQueues,
+	}, nil
 }
 
 func (server *SubmitServer) DeleteQueue(ctx context.Context, request *api.QueueDeleteRequest) (*types.Empty, error) {
@@ -232,10 +271,10 @@ func (server *SubmitServer) SubmitJobs(ctx context.Context, req *api.JobSubmitRe
 
 	q, err := server.getQueueOrCreate(ctx, req.Queue)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(armadaerrors.CodeFromError(err), "couldn't get/make queue: %s", err)
 	}
 
-	err = server.submittingJobsWouldSurpassLimit(q, req)
+	err = server.submittingJobsWouldSurpassLimit(*q, req)
 	if err != nil {
 		return nil, status.Errorf(
 			codes.InvalidArgument,
@@ -245,7 +284,7 @@ func (server *SubmitServer) SubmitJobs(ctx context.Context, req *api.JobSubmitRe
 	err = checkPermission(server.permissions, ctx, permissions.SubmitAnyJobs)
 	var globalPermErr *ErrNoPermission
 	if errors.As(err, &globalPermErr) {
-		err = checkQueuePermission(server.permissions, ctx, q, permissions.SubmitJobs, queue.PermissionVerbSubmit)
+		err = checkQueuePermission(server.permissions, ctx, *q, permissions.SubmitJobs, queue.PermissionVerbSubmit)
 		var queuePermErr *ErrNoPermission
 		if errors.As(err, &queuePermErr) {
 			return nil, status.Errorf(codes.PermissionDenied,
@@ -267,9 +306,9 @@ func (server *SubmitServer) SubmitJobs(ctx context.Context, req *api.JobSubmitRe
 	// This is an optimisation to avoid passing around groups unnecessarily.
 	groups := []string{}
 	if !q.HasPermission(principalSubject, queue.PermissionVerbSubmit) {
-		for _, subject := range queue.NewPermissionSubjectsFromOwners(nil, principal.GetGroupNames()) {
-			if q.HasPermission(subject, queue.PermissionVerbSubmit) {
-				groups = append(groups, subject.Name)
+		for _, groupSubject := range queue.NewPermissionSubjectsFromOwners(nil, principal.GetGroupNames()) {
+			if q.HasPermission(groupSubject, queue.PermissionVerbSubmit) {
+				groups = append(groups, groupSubject.Name)
 			}
 		}
 	}
@@ -284,7 +323,7 @@ func (server *SubmitServer) SubmitJobs(ctx context.Context, req *api.JobSubmitRe
 	// to avoid having users wait for a job that may never be scheduled
 	allClusterSchedulingInfo, err := server.schedulingInfoRepository.GetClusterSchedulingInfo()
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "[SubmitJobs] error getting scheduling info: %s", err)
+		return nil, status.Errorf(codes.InvalidArgument, "error getting scheduling info: %s", err)
 	}
 
 	if ok, err := validateJobsCanBeScheduled(jobs, allClusterSchedulingInfo); !ok {
@@ -651,35 +690,41 @@ func (server *SubmitServer) checkReprioritizePerms(ctx context.Context, jobs []*
 	return nil
 }
 
-func (server *SubmitServer) getQueueOrCreate(ctx context.Context, queueName string) (queue.Queue, error) {
+func (server *SubmitServer) getQueueOrCreate(ctx context.Context, queueName string) (*queue.Queue, error) {
 	q, e := server.queueRepository.GetQueue(queueName)
 	if e == nil {
-		return q, nil
+		return &q, nil
 	}
 	var expected *repository.ErrQueueNotFound
 
 	if errors.As(e, &expected) {
-		if !server.queueManagementConfig.AutoCreateQueues || !server.permissions.UserHasPermission(ctx, permissions.SubmitAnyJobs) {
-			return queue.Queue{}, status.Errorf(codes.NotFound, "Queue %q not found", queueName)
+
+		if !server.queueManagementConfig.AutoCreateQueues {
+			return nil, status.Errorf(codes.Aborted, "Queue %s not found; refusing to make it automatically (server setting autoCreateQueues is false)", queueName)
+		}
+		if !server.permissions.UserHasPermission(ctx, permissions.SubmitAnyJobs) {
+			return nil, status.Errorf(codes.PermissionDenied, "Queue %s not found; won't create because user lacks SubmitAnyJobs permission", queueName)
 		}
 
 		principal := authorization.GetPrincipal(ctx)
-
+		groupNames := slices.Filter(nil, principal.GetGroupNames(),
+			func(s string) bool { return s != authorization.EveryoneGroup },
+		)
 		q = queue.Queue{
 			Name:           queueName,
 			PriorityFactor: server.queueManagementConfig.DefaultPriorityFactor,
 			Permissions: []queue.Permissions{
-				queue.NewPermissionsFromOwners([]string{principal.GetName()}, principal.GetGroupNames()),
+				queue.NewPermissionsFromOwners([]string{principal.GetName()}, groupNames),
 			},
 		}
 
 		if err := server.queueRepository.CreateQueue(q); err != nil {
-			return queue.Queue{}, status.Errorf(codes.Aborted, e.Error())
+			return nil, status.Errorf(codes.Aborted, "Couldn't find or create queue %s: %s", queueName, err.Error())
 		}
-		return q, nil
+		return &q, nil
 	}
 
-	return queue.Queue{}, status.Errorf(codes.Unavailable, "Could not load queue %q: %s", queueName, e.Error())
+	return nil, status.Errorf(codes.Unavailable, "Couldn't load queue %s: %s", queueName, e.Error())
 }
 
 // createJobs returns a list of objects representing the jobs in a JobSubmitRequest.
