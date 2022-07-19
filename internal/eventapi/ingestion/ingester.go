@@ -6,6 +6,8 @@ import (
 	"os/signal"
 	"sync"
 
+	"github.com/go-redis/redis"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
@@ -14,7 +16,6 @@ import (
 	"github.com/G-Research/armada/internal/common/compress"
 	"github.com/G-Research/armada/internal/eventapi/configuration"
 	"github.com/G-Research/armada/internal/eventapi/eventdb"
-	"github.com/G-Research/armada/internal/lookout/postgres"
 	"github.com/G-Research/armada/internal/pulsarutils"
 )
 
@@ -27,14 +28,13 @@ func Run(config *configuration.EventIngesterConfiguration) {
 
 	log.Info("Event Ingester Starting")
 
-	log.Infof("Opening connection pool to postgres")
-	db, err := postgres.OpenPgxPool(config.Postgres)
-	defer db.Close()
-	if err != nil {
-		log.Errorf("Error opening connection to postgres")
-		panic(err)
-	}
-	eventDb := eventdb.NewEventDb(db)
+	redis := redis.NewUniversalClient(&config.Redis)
+	defer func() {
+		if err := redis.Close(); err != nil {
+			log.WithError(err).Error("failed to close events Redis client")
+		}
+	}()
+	eventDb := eventdb.NewRedisEventStore(redis, config.EventRetentionPolicy)
 
 	pulsarClient, err := pulsarutils.NewPulsarClient(&config.Pulsar)
 	defer pulsarClient.Close()
@@ -43,15 +43,7 @@ func Run(config *configuration.EventIngesterConfiguration) {
 		panic(err)
 	}
 
-	producer, err := pulsarClient.CreateProducer(pulsar.ProducerOptions{
-		Topic: config.UpdateTopic,
-	})
-	if err != nil {
-		log.Errorf("Error initialising pulsar producer")
-		panic(err)
-	}
-
-	// Receive messages and convert them to instructions in parallel
+	// Receive messages and convert them to instructions
 	log.Infof("Creating subscription to pulsar topic %s", config.Pulsar.JobsetEventsTopic)
 
 	// Create a pulsar consumer
@@ -79,22 +71,18 @@ func Run(config *configuration.EventIngesterConfiguration) {
 	}
 	converter := &MessageRowConverter{
 		compressor: compressor,
-		eventDb:    eventDb,
 	}
 	events := Convert(ctx, batchedMsgs, 5, converter)
 
 	// Insert into database
 	inserted := InsertEvents(ctx, eventDb, events, 5)
 
-	// Send update
-	sequenceUpdatesSent := SendSequenceUpdates(ctx, producer, inserted, 5)
-
 	// Waitgroup that wil fire when the pipeline has been torn down
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
 	// Send Acks
-	go pulsarutils.Ack(ctx, []pulsar.Consumer{consumer}, sequenceUpdatesSent, wg)
+	go pulsarutils.Ack(ctx, []pulsar.Consumer{consumer}, inserted, wg)
 
 	log.Info("Ingestion pipeline set up.  Running until shutdown event received")
 	// wait for a shutdown event

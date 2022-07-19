@@ -14,12 +14,12 @@ import (
 	"github.com/G-Research/armada/pkg/armadaevents"
 )
 
-// MessageRowConverter raw converts pulsar messages into events that we can insert into the database
+// MessageRowConverter raw converts pulsar messages into events that we can store in Redis
 type MessageRowConverter struct {
 	compressor compress.Compressor
 }
 
-// Convert takes a  channel of pulsar message batches and outputs a channel of batched events that we can insert into the database
+// Convert takes a  channel of pulsar message batches and outputs a channel of batched events that we store in Redis
 func Convert(ctx context.Context, msgs chan []*pulsarutils.ConsumerMessage, bufferSize int, converter *MessageRowConverter) chan *model.BatchUpdate {
 	out := make(chan *model.BatchUpdate, bufferSize)
 	go func() {
@@ -50,12 +50,6 @@ func (rc *MessageRowConverter) ConvertBatch(ctx context.Context, batch []*pulsar
 			continue
 		}
 
-		//  If there's no index on the message ignore
-		if pulsarMsg.Index() == nil {
-			log.Warnf("Index not found on pulsar message %s. Ignoring", pulsarMsg.ID())
-			continue
-		}
-
 		// Try and unmarshall the proto
 		es, err := eventutil.UnmarshalEventSequence(ctx, msg.Message.Payload())
 		if err != nil {
@@ -72,7 +66,7 @@ func (rc *MessageRowConverter) ConvertBatch(ctx context.Context, batch []*pulsar
 			}
 		}
 
-		// Remove the jobset Name and the queue from the proto as this wil be stored as the key in the db
+		// Remove the jobset Name and the queue from the proto as this will be stored as the key
 		queue := es.Queue
 		jobset := es.JobSetName
 		es.JobSetName = ""
@@ -80,11 +74,13 @@ func (rc *MessageRowConverter) ConvertBatch(ctx context.Context, batch []*pulsar
 
 		bytes, err := proto.Marshal(&armadaevents.DatabaseSequence{EventSequence: es})
 		if err != nil {
-			log.WithError(err).Warnf("Could not compress proto for msg %s", batch[i].Message.ID())
+			log.WithError(err).Warnf("Could not unmarshall proto for msg %s", batch[i].Message.ID())
+			continue
 		}
 		compressedBytes, err := rc.compressor.Compress(bytes)
 		if err != nil {
-			log.WithError(err).Warnf("Could not compress proto for msg %s", batch[i].Message.ID())
+			log.WithError(err).Warnf("Could not compress event for msg %s", batch[i].Message.ID())
+			continue
 		}
 
 		events = append(events, &model.Event{

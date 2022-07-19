@@ -1,9 +1,9 @@
 package eventdb
 
 import (
+	"github.com/G-Research/armada/internal/eventapi/configuration"
 	"github.com/G-Research/armada/internal/eventapi/model"
 
-	"github.com/G-Research/armada/internal/armada/configuration"
 	"github.com/go-redis/redis"
 )
 
@@ -32,7 +32,7 @@ func (repo *RedisEventStore) ReportEvents(update []*model.Event) error {
 		key  string
 		data []byte
 	}
-	data := []eventData{}
+	var data []eventData
 	uniqueJobSets := make(map[string]bool)
 
 	for _, e := range update {
