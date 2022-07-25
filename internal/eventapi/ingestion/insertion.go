@@ -6,15 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/G-Research/armada/internal/pulsarutils"
-
-	"github.com/G-Research/armada/internal/common/armadaerrors"
 	"github.com/pkg/errors"
-
 	log "github.com/sirupsen/logrus"
 
+	"github.com/G-Research/armada/internal/common/armadaerrors"
 	"github.com/G-Research/armada/internal/eventapi/eventdb"
 	"github.com/G-Research/armada/internal/eventapi/model"
+	"github.com/G-Research/armada/internal/pulsarutils"
 )
 
 // InsertEvents takes a channel of armada events and insets them into the event db
@@ -71,9 +69,9 @@ func WithRetry(executeDb func() error) error {
 		}
 	}
 
-	// If we get to here then we've got an error we can't handle.  Panic
+	// If we get to here then we've got an error we can't handle. Panic
 	panic(errors.WithStack(&armadaerrors.ErrMaxRetriesExceeded{
-		Message:   fmt.Sprintf("Gave up inserting into redis query after %d retries", maxRetries),
+		Message:   fmt.Sprintf("Gave up inserting into Redis after %d retries", maxRetries),
 		LastError: err,
 	}))
 }
@@ -85,6 +83,7 @@ func min(a int, b int) int {
 	return b
 }
 
+// IsRetryableRedisError is largely taken from https://github.com/go-redis/redis/blob/master/error.go#L28
 func IsRetryableRedisError(err error) bool {
 	if err == nil {
 		return false
@@ -100,6 +99,9 @@ func IsRetryableRedisError(err error) bool {
 		return true
 	}
 	if strings.HasPrefix(s, "CLUSTERDOWN ") {
+		return true
+	}
+	if strings.HasPrefix(s, "TRYAGAIN ") {
 		return true
 	}
 	return false

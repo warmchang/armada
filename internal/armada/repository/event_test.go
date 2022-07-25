@@ -12,7 +12,7 @@ import (
 )
 
 func TestCheckStreamExists(t *testing.T) {
-	withRedisEventRepository(func(r *RedisEventRepository) {
+	withRedisEventRepository(func(r *LegacyRedisEventRepository) {
 		exists, err := r.CheckStreamExists("test", "jobset")
 		assert.NoError(t, err)
 		assert.False(t, exists)
@@ -40,13 +40,13 @@ func createEvent(queue string, jobSetId string) *api.EventMessage {
 	}
 }
 
-func withRedisEventRepository(action func(r *RedisEventRepository)) {
+func withRedisEventRepository(action func(r *LegacyRedisEventRepository)) {
 	client := redis.NewClient(&redis.Options{Addr: "localhost:6379", DB: 10})
 	defer client.FlushDB()
 	defer client.Close()
 
 	client.FlushDB()
 
-	repo := NewRedisEventRepository(client, configuration.EventRetentionPolicy{ExpiryEnabled: true, RetentionDuration: time.Hour})
+	repo := NewLegacyRedisEventRepository(client, configuration.EventRetentionPolicy{ExpiryEnabled: true, RetentionDuration: time.Hour})
 	action(repo)
 }

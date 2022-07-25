@@ -321,7 +321,7 @@ func IsNetworkError(err error) bool {
 	}
 
 	// EOF indicates a network termination
-	if errors.Is(err, io.EOF) {
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		return true
 	}
 

@@ -72,9 +72,9 @@ func (rc *MessageRowConverter) ConvertBatch(ctx context.Context, batch []*pulsar
 		es.JobSetName = ""
 		es.Queue = ""
 
-		bytes, err := proto.Marshal(&armadaevents.DatabaseSequence{EventSequence: es})
+		bytes, err := proto.Marshal(es)
 		if err != nil {
-			log.WithError(err).Warnf("Could not unmarshall proto for msg %s", batch[i].Message.ID())
+			log.WithError(err).Warnf("Could not marshall proto for msg %s", batch[i].Message.ID())
 			continue
 		}
 		compressedBytes, err := rc.compressor.Compress(bytes)

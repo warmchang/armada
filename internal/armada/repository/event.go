@@ -1,22 +1,23 @@
 package repository
 
 import (
-	"fmt"
 	"time"
+
+	"github.com/G-Research/armada/internal/armada/repository/sequence"
+
+	"github.com/G-Research/armada/internal/common/compress"
 
 	"github.com/go-redis/redis"
 	"github.com/gogo/protobuf/proto"
+	"github.com/pkg/errors"
 
-	"github.com/G-Research/armada/internal/armada/configuration"
+	"github.com/G-Research/armada/internal/eventapi/serving/apimessages"
 	"github.com/G-Research/armada/pkg/api"
+	"github.com/G-Research/armada/pkg/armadaevents"
 )
 
 const eventStreamPrefix = "Events:"
 const dataKey = "message"
-
-type EventStore interface {
-	ReportEvents(message []*api.EventMessage) error
-}
 
 type EventRepository interface {
 	CheckStreamExists(queue string, jobSetId string) (bool, error)
@@ -25,81 +26,13 @@ type EventRepository interface {
 }
 
 type RedisEventRepository struct {
-	db             redis.UniversalClient
-	eventRetention configuration.EventRetentionPolicy
+	db redis.UniversalClient
 }
 
-func NewRedisEventRepository(db redis.UniversalClient, eventRetention configuration.EventRetentionPolicy) *RedisEventRepository {
-	return &RedisEventRepository{db: db, eventRetention: eventRetention}
-}
-
-func (repo *RedisEventRepository) ReportEvent(message *api.EventMessage) error {
-	return repo.ReportEvents([]*api.EventMessage{message})
-}
-
-func (repo *RedisEventRepository) ReportEvents(messages []*api.EventMessage) error {
-	if len(messages) == 0 {
-		return nil
-	}
-
-	type eventData struct {
-		key  string
-		data []byte
-	}
-	data := []eventData{}
-	uniqueJobSets := make(map[string]bool)
-
-	for _, m := range messages {
-		event, e := api.UnwrapEvent(m)
-		if e != nil {
-			return e
-		}
-		messageData, e := proto.Marshal(m)
-		if e != nil {
-			return e
-		}
-		key := getJobSetEventsKey(event.GetQueue(), event.GetJobSetId())
-		data = append(data, eventData{key: key, data: messageData})
-		uniqueJobSets[key] = true
-	}
-
-	pipe := repo.db.Pipeline()
-	for _, e := range data {
-		pipe.XAdd(&redis.XAddArgs{
-			Stream: e.key,
-			Values: map[string]interface{}{
-				dataKey: e.data,
-			},
-		})
-	}
-
-	if repo.eventRetention.ExpiryEnabled {
-		for key := range uniqueJobSets {
-			pipe.Expire(key, repo.eventRetention.RetentionDuration)
-		}
-	}
-
-	_, e := pipe.Exec()
-	return e
-}
-
-func (repo *RedisEventRepository) CheckStreamExists(queue string, jobSetId string) (bool, error) {
-	result, err := repo.db.Exists(getJobSetEventsKey(queue, jobSetId)).Result()
-	if err != nil {
-		return false, err
-	}
-	exists := result > 0
-	return exists, nil
-}
-
-func (repo *RedisEventRepository) ReadEvents(queue, jobSetId string, lastId string, limit int64, block time.Duration) ([]*api.EventStreamMessage, error) {
-
-	if lastId == "" {
-		lastId = "0"
-	}
+func (repo *RedisEventRepository) ReadEvents(queue string, jobSetId string, from *sequence.ExternalSeqNo, limit int64, block time.Duration) ([]byte, error) {
 
 	cmd, err := repo.db.XRead(&redis.XReadArgs{
-		Streams: []string{getJobSetEventsKey(queue, jobSetId), lastId},
+		Streams: []string{repo.getJobSetEventsKey(queue, jobSetId), from.PrevRedisId()},
 		Count:   limit,
 		Block:   block,
 	}).Result()
@@ -108,27 +41,56 @@ func (repo *RedisEventRepository) ReadEvents(queue, jobSetId string, lastId stri
 	if err == redis.Nil {
 		return make([]*api.EventStreamMessage, 0), nil
 	} else if err != nil {
-		return nil, fmt.Errorf("[RedisEventRepository.ReadEvents] error reading from database: %s", err)
+		return nil, errors.WithStack(err)
+	}
+
+	//TODO: find some way of sharing the decompressor
+	decompressor, err := compress.NewZlibDecompressor()
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	messages := make([]*api.EventStreamMessage, 0)
 	for _, m := range cmd[0].Messages {
 		data := m.Values[dataKey]
-		msg := &api.EventMessage{}
 		bytes := []byte(data.(string))
-		err = proto.Unmarshal(bytes, msg)
+		// TODO: here we decompress all the events we fetched from the db- it would be much better
+		// If we could decompress lazily, but the interface confines us somewhat here
+		apiEvents, err := extractEvents(bytes, queue, jobSetId, decompressor)
 		if err != nil {
-			return nil, fmt.Errorf("[RedisEventRepository.ReadEvents] error unmarshalling: %s", err)
+			return nil, err
 		}
-		messages = append(messages, &api.EventStreamMessage{Id: m.ID, Message: msg})
+		for i, msg := range apiEvents {
+			msgId, err := sequence.FromRedisId(m.ID, i, i == len(apiEvents)-1)
+			if err != nil {
+				return nil, err
+			}
+			messages = append(messages, &api.EventStreamMessage{Id: msgId.ToString(), Message: msg})
+		}
 	}
 	return messages, nil
 }
 
-func (repo *RedisEventRepository) GetLastMessageId(queue, jobSetId string) (string, error) {
+func extractEvents(data []byte, queue, jobSetId string, decompressor *compress.ZlibDecompressor) ([]*api.EventMessage, error) {
+	decompressedData, err := decompressor.Decompress(data)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	es := &armadaevents.EventSequence{}
+	err = proto.Unmarshal(decompressedData, es)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	// These fields are not present in the db messages, so we add them back here
+	es.Queue = queue
+	es.JobSetName = jobSetId
+	return apimessages.FromEventSequence(es)
+}
+
+func (repo *LegacyRedisEventRepository) GetLastMessageId(queue, jobSetId string) (string, error) {
 	msg, err := repo.db.XRevRangeN(getJobSetEventsKey(queue, jobSetId), "+", "-", 1).Result()
 	if err != nil {
-		return "", fmt.Errorf("[RedisEventRepository.GetLastMessageId] error reading from database: %s", err)
+		return "", errors.Wrap(err, "Error retrieving the last message id from Redis")
 	}
 	if len(msg) > 0 {
 		return msg[0].ID, nil
@@ -136,6 +98,6 @@ func (repo *RedisEventRepository) GetLastMessageId(queue, jobSetId string) (stri
 	return "0", nil
 }
 
-func getJobSetEventsKey(queue, jobSetId string) string {
+func (repo *LegacyRedisEventRepository) getJobSetEventsKey(queue, jobSetId string) string {
 	return eventStreamPrefix + queue + ":" + jobSetId
 }
