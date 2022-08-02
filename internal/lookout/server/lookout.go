@@ -61,7 +61,6 @@ func (s *LookoutServer) CancelJobSet(ctx context.Context, req *lookout.CancelJob
 
 	outgoingContext := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
 	if len(result) > 0 {
-		log.Infof(result[0])
 		outgoingContext = metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"Authorization": result[0]}))
 	}
 
