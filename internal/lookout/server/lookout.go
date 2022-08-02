@@ -58,17 +58,19 @@ func (s *LookoutServer) CancelJobSet(ctx context.Context, req *lookout.CancelJob
 	fmt.Println(ok)
 	result := md.Get("Authorization")
 	log.Infof("Length of Authorization %d", len(result))
-	result = md.Get("authorization")
-	log.Infof("Length of Authorization %d", len(result))
 
-	//outgoingContext := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"authorization": "test"}))
+	outgoingContext := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
+	if len(result) > 0 {
+		log.Infof(result[0])
+		outgoingContext = metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"Authorization": result[0]}))
+	}
 
 	apiConnectionDetails := client.ApiConnectionDetails{
 		ArmadaUrl: s.armadaUrl,
 	}
 
 	err := client.WithSubmitClient(&apiConnectionDetails, func(submitClient api.SubmitClient) error {
-		result, err := submitClient.CancelJobs(ctx, &api.JobCancelRequest{
+		result, err := submitClient.CancelJobs(outgoingContext, &api.JobCancelRequest{
 			JobId:    "",
 			JobSetId: req.JobSet,
 			Queue:    req.Queue,
