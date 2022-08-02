@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"github.com/G-Research/armada/internal/common"
 	"github.com/G-Research/armada/internal/lookout/repository"
 	"github.com/G-Research/armada/pkg/api"
 	"github.com/G-Research/armada/pkg/api/lookout"
@@ -62,14 +61,13 @@ func (s *LookoutServer) CancelJobSet(ctx context.Context, req *lookout.CancelJob
 	result = md.Get("authorization")
 	log.Infof("Length of Authorization %d", len(result))
 
+	//outgoingContext := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"authorization": "test"}))
+
 	apiConnectionDetails := client.ApiConnectionDetails{
 		ArmadaUrl: s.armadaUrl,
 	}
 
 	err := client.WithSubmitClient(&apiConnectionDetails, func(submitClient api.SubmitClient) error {
-		ctx, cancel := common.ContextWithDefaultTimeout()
-		defer cancel()
-
 		result, err := submitClient.CancelJobs(ctx, &api.JobCancelRequest{
 			JobId:    "",
 			JobSetId: req.JobSet,
