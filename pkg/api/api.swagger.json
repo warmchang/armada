@@ -163,6 +163,38 @@
         }
       }
     },
+    "/v1/job/cancel_by_ids": {
+      "post": {
+        "tags": [
+          "Submit"
+        ],
+        "operationId": "CancelJobsById",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiJobCancelByIdsRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiCancellationResult"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        }
+      }
+    },
     "/v1/job/reprioritize": {
       "post": {
         "tags": [
@@ -670,6 +702,18 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/apiServiceConfig"
+          }
+        }
+      }
+    },
+    "apiJobCancelByIdsRequest": {
+      "type": "object",
+      "title": "swagger:model",
+      "properties": {
+        "jobIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       }

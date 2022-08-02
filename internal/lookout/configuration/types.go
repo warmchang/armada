@@ -24,6 +24,10 @@ type LookoutUIConfig struct {
 	JobsAutoRefreshMs     int
 }
 
+type LookoutServerConfig struct {
+	ArmadaApiGrpcUrl string
+}
+
 type PrunerConfig struct {
 	DaysToKeep int
 	BatchSize  int
@@ -36,6 +40,7 @@ type LookoutConfiguration struct {
 
 	Grpc grpcconfig.GrpcConfig
 
+	Server   LookoutServerConfig
 	UIConfig LookoutUIConfig
 
 	EventQueue             string

@@ -11,6 +11,9 @@ grpc:
     minTime: 5m
     permitWithoutStream: false
 
+server:
+  armadaApiGrpcUrl: "localhost:50051"
+
 uiConfig:
   armadaApiBaseUrl: "http://localhost:8080"
   userAnnotationPrefix: "armadaproject.io/"

@@ -103,6 +103,17 @@ message GetJobsResponse {
     repeated JobInfo job_infos = 1;
 }
 
+message CancelJobSetRequest {
+    string queue = 1;
+    string job_set = 2;
+    repeated string job_states = 3;
+}
+
+
+message CancelJobResponse {
+
+}
+
 service Lookout {
     rpc Overview (google.protobuf.Empty) returns (SystemOverview) {
         option (google.api.http) = {
@@ -120,6 +131,13 @@ service Lookout {
     rpc GetJobs (GetJobsRequest) returns (GetJobsResponse) {
         option (google.api.http) = {
             post: "/api/v1/lookout/jobs"
+            body: "*"
+        };
+    }
+
+    rpc CancelJobSet (CancelJobSetRequest) returns (CancelJobResponse) {
+        option (google.api.http) = {
+            post: "/api/v1/lookout/cancel_job_set"
             body: "*"
         };
     }

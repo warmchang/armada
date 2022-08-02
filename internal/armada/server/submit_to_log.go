@@ -361,6 +361,59 @@ func (srv *PulsarSubmitServer) CancelJobs(ctx context.Context, req *api.JobCance
 	}, nil
 }
 
+func (srv *PulsarSubmitServer) CancelJobsById(ctx context.Context, req *api.JobCancelByIdsRequest) (*api.CancellationResult, error) {
+	// Split IDs into batches and process one batch at a time
+	// To reduce the number of jobs stored in memory
+	//
+	//
+	//batches := util.Batch(req.GetJobIds(), srv.SubmitServer.cancelJobsBatchSize)
+	//cancelledIds := []string{}
+	//for _, batch := range batches {
+	//
+	//	jobs, err := srv.SubmitServer.jobRepository.GetExistingJobsByIds(batch)
+	//	if err != nil {
+	//		result := &api.CancellationResult{CancelledIds: cancelledIds}
+	//		return result, status.Errorf(codes.Internal, "error getting jobs: %s", err)
+	//	}
+	//
+	//	result, err := server.cancelJobs(ctx, jobs)
+	//	var e *ErrNoPermission
+	//	if errors.As(err, &e) {
+	//		return nil, status.Errorf(codes.PermissionDenied, "error canceling jobs: %s", e)
+	//	} else if err != nil {
+	//		result := &api.CancellationResult{CancelledIds: cancelledIds}
+	//		return result, status.Errorf(codes.Unavailable, "error checking permissions: %s", err)
+	//	}
+	//	cancelledIds = append(cancelledIds, result.CancelledIds...)
+	//
+	//	// TODO I think the right way to do this is to include a timeout with the call to Redis
+	//	// Then, we can check for a deadline exceeded error here
+	//	if util.CloseToDeadline(ctx, time.Second*1) {
+	//		result := &api.CancellationResult{CancelledIds: cancelledIds}
+	//		return result, status.Errorf(codes.DeadlineExceeded, "deadline exceeded")
+	//	}
+	//}
+	//
+	//userId, groups, err := srv.Authorize(ctx, req.Queue, permissions.CancelAnyJobs, queue.PermissionVerbCancel)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//
+	//sequence := &armadaevents.EventSequence{
+	//	Queue:      req.Queue,
+	//	JobSetName: req.JobSetId,
+	//	UserId:     userId,
+	//	Groups:     groups,
+	//	Events:     make([]*armadaevents.EventSequence_Event, 1, 1),
+	//}
+	//
+	//err = srv.publishToPulsar(ctx, []*armadaevents.EventSequence{sequence})
+
+	return &api.CancellationResult{}, nil
+	//return &api.CancellationResult{CancelledIds: cancelledIds}, nil
+}
+
 func (srv *PulsarSubmitServer) ReprioritizeJobs(ctx context.Context, req *api.JobReprioritizeRequest) (*api.JobReprioritizeResponse, error) {
 
 	// If either queue or jobSetId is missing, we get the job set and queue associated

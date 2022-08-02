@@ -33,6 +33,14 @@ func (r *SQLJobRepository) GetJobs(ctx context.Context, opts *lookout.GetJobsReq
 	return result, nil
 }
 
+func (r *SQLJobRepository) GetJobIds(ctx context.Context, opts *lookout.CancelJobSetRequest) ([]string, error) {
+	if valid, jobState := validateJobStates(opts.JobStates); !valid {
+		return nil, fmt.Errorf("unknown job state: %q", jobState)
+	}
+
+	return []string{}, nil
+}
+
 func validateJobStates(jobStates []string) (bool, JobState) {
 	for _, jobState := range jobStates {
 		if !isJobState(jobState) {

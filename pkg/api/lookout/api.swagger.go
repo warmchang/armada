@@ -22,6 +22,38 @@ func SwaggerJsonTemplate() string {
 		"    \"version\": \"version not set\"\n" +
 		"  },\n" +
 		"  \"paths\": {\n" +
+		"    \"/api/v1/lookout/cancel_job_set\": {\n" +
+		"      \"post\": {\n" +
+		"        \"tags\": [\n" +
+		"          \"Lookout\"\n" +
+		"        ],\n" +
+		"        \"operationId\": \"CancelJobSet\",\n" +
+		"        \"parameters\": [\n" +
+		"          {\n" +
+		"            \"name\": \"body\",\n" +
+		"            \"in\": \"body\",\n" +
+		"            \"required\": true,\n" +
+		"            \"schema\": {\n" +
+		"              \"$ref\": \"#/definitions/lookoutCancelJobSetRequest\"\n" +
+		"            }\n" +
+		"          }\n" +
+		"        ],\n" +
+		"        \"responses\": {\n" +
+		"          \"200\": {\n" +
+		"            \"description\": \"A successful response.\",\n" +
+		"            \"schema\": {\n" +
+		"              \"$ref\": \"#/definitions/lookoutCancelJobResponse\"\n" +
+		"            }\n" +
+		"          },\n" +
+		"          \"default\": {\n" +
+		"            \"description\": \"An unexpected error response.\",\n" +
+		"            \"schema\": {\n" +
+		"              \"$ref\": \"#/definitions/runtimeError\"\n" +
+		"            }\n" +
+		"          }\n" +
+		"        }\n" +
+		"      }\n" +
+		"    },\n" +
 		"    \"/api/v1/lookout/jobs\": {\n" +
 		"      \"post\": {\n" +
 		"        \"tags\": [\n" +
@@ -284,6 +316,26 @@ func SwaggerJsonTemplate() string {
 		"      \"format\": \"int64\",\n" +
 		"      \"title\": \"Type represents the stored type of IntOrString.\",\n" +
 		"      \"x-go-package\": \"k8s.io/apimachinery/pkg/util/intstr\"\n" +
+		"    },\n" +
+		"    \"lookoutCancelJobResponse\": {\n" +
+		"      \"type\": \"object\"\n" +
+		"    },\n" +
+		"    \"lookoutCancelJobSetRequest\": {\n" +
+		"      \"type\": \"object\",\n" +
+		"      \"properties\": {\n" +
+		"        \"jobSet\": {\n" +
+		"          \"type\": \"string\"\n" +
+		"        },\n" +
+		"        \"jobStates\": {\n" +
+		"          \"type\": \"array\",\n" +
+		"          \"items\": {\n" +
+		"            \"type\": \"string\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        \"queue\": {\n" +
+		"          \"type\": \"string\"\n" +
+		"        }\n" +
+		"      }\n" +
 		"    },\n" +
 		"    \"lookoutDurationStats\": {\n" +
 		"      \"type\": \"object\",\n" +

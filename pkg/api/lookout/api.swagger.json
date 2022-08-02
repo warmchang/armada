@@ -11,6 +11,38 @@
     "version": "version not set"
   },
   "paths": {
+    "/api/v1/lookout/cancel_job_set": {
+      "post": {
+        "tags": [
+          "Lookout"
+        ],
+        "operationId": "CancelJobSet",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/lookoutCancelJobSetRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/lookoutCancelJobResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        }
+      }
+    },
     "/api/v1/lookout/jobs": {
       "post": {
         "tags": [
@@ -273,6 +305,26 @@
       "format": "int64",
       "title": "Type represents the stored type of IntOrString.",
       "x-go-package": "k8s.io/apimachinery/pkg/util/intstr"
+    },
+    "lookoutCancelJobResponse": {
+      "type": "object"
+    },
+    "lookoutCancelJobSetRequest": {
+      "type": "object",
+      "properties": {
+        "jobSet": {
+          "type": "string"
+        },
+        "jobStates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "queue": {
+          "type": "string"
+        }
+      }
     },
     "lookoutDurationStats": {
       "type": "object",

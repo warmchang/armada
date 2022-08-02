@@ -225,6 +225,10 @@ func (server *SubmitServer) DeleteQueue(ctx context.Context, request *api.QueueD
 	return &types.Empty{}, nil
 }
 
+func (server *SubmitServer) CancelJobsById(ctx context.Context, req *api.JobCancelByIdsRequest) (*api.CancellationResult, error) {
+	return nil, nil
+}
+
 func (server *SubmitServer) SubmitJobs(ctx context.Context, req *api.JobSubmitRequest) (*api.JobSubmitResponse, error) {
 	principal := authorization.GetPrincipal(ctx)
 

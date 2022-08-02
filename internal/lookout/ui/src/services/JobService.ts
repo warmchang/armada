@@ -235,28 +235,24 @@ export default class JobService {
   }
 
   async cancelJobSets(queue: string, jobSets: JobSet[]): Promise<CancelJobSetsResponse> {
-    const response: CancelJobSetsResponse = { cancelledJobSets: [], failedJobSetCancellations: [] }
+    const result: CancelJobSetsResponse = { cancelledJobSets: [], failedJobSetCancellations: [] }
     for (const jobSet of jobSets) {
       try {
-        const apiResponse = await this.submitApi.cancelJobs({
+        const response = await this.lookoutApi.cancelJobSet({
           body: {
             queue: queue,
-            jobSetId: jobSet.jobSetId,
+            jobSet: jobSet.jobSetId,
           },
         })
 
-        if (apiResponse.cancelledIds?.length) {
-          response.cancelledJobSets.push(jobSet)
-        } else {
-          response.failedJobSetCancellations.push({ jobSet: jobSet, error: "No job was cancelled" })
-        }
+        result.cancelledJobSets.push(jobSet)
       } catch (e) {
         console.error(e)
         const text = await getErrorMessage(e)
-        response.failedJobSetCancellations.push({ jobSet: jobSet, error: text })
+        result.failedJobSetCancellations.push({ jobSet: jobSet, error: text })
       }
     }
-    return response
+    return result
   }
 
   async reprioritizeJobs(jobs: Job[], newPriority: number): Promise<ReprioritizeJobsResponse> {

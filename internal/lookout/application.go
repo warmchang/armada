@@ -88,7 +88,7 @@ func StartUp(config configuration.LookoutConfiguration, healthChecks *health.Mul
 	dbMetricsProvider := metrics.NewLookoutSqlDbMetricsProvider(db, config.Postgres)
 	metrics.ExposeLookoutMetrics(dbMetricsProvider)
 
-	lookoutServer := server.NewLookoutServer(jobRepository)
+	lookoutServer := server.NewLookoutServer(config.Server.ArmadaApiGrpcUrl, jobRepository)
 	lookout.RegisterLookoutServer(grpcServer, lookoutServer)
 
 	grpc_prometheus.Register(grpcServer)
