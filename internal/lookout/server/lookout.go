@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/G-Research/armada/internal/common"
-	"github.com/G-Research/armada/pkg/api"
-	"github.com/G-Research/armada/pkg/client"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/G-Research/armada/internal/common"
 	"github.com/G-Research/armada/internal/lookout/repository"
+	"github.com/G-Research/armada/pkg/api"
 	"github.com/G-Research/armada/pkg/api/lookout"
+	"github.com/G-Research/armada/pkg/client"
 )
 
 type LookoutServer struct {
