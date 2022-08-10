@@ -111,7 +111,7 @@ export default function JobSets(props: JobSetsProps) {
   }
 
   return (
-    <Container className="job-sets">
+    <Container maxWidth={"xl"} className="job-sets">
       <div className="job-sets-header">
         <div className="job-sets-params">
           <h2 className="title">Job Sets</h2>
