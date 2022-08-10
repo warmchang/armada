@@ -17,7 +17,7 @@ import CancelIcon from "@material-ui/icons/Cancel"
 import LowPriority from "@material-ui/icons/LowPriority"
 import { AutoSizer } from "react-virtualized"
 
-import { JobSetsView, isJobSetsView } from "../../containers/JobSetsContainer"
+import { JobSetsView, isJobSetsView, JobSetColumnWeights } from "../../containers/JobSetsContainer"
 import { DurationStats, JobSet } from "../../services/JobService"
 import { RequestStatus } from "../../utils"
 import AutoRefreshToggle from "../AutoRefreshToggle"
@@ -38,6 +38,7 @@ interface JobSetsProps {
   canReprioritize: boolean
   newestFirst: boolean
   activeOnly: boolean
+  jobSetColumnWeights: JobSetColumnWeights
   onQueueChange: (queue: string) => void
   onViewChange: (view: JobSetsView) => void
   onRefresh: () => void
@@ -71,6 +72,7 @@ export default function JobSets(props: JobSetsProps) {
       height={height}
       width={width}
       jobSets={props.jobSets}
+      columnWeights={props.jobSetColumnWeights}
       selectedJobSets={props.selectedJobSets}
       newestFirst={props.newestFirst}
       onJobSetClick={props.onJobSetClick}

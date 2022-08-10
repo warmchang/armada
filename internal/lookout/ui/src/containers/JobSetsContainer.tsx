@@ -21,6 +21,16 @@ type JobSetsContainerParams = {
   currentView: JobSetsView
 }
 
+export type JobSetColumnWeights = {
+  jobSetId: number
+  jobsQueued: number
+  jobsPending: number
+  jobsRunning: number
+  jobsSucceeded: number
+  jobsFailed: number
+  latestSubmissionTime: number
+}
+
 export type JobSetsContainerState = {
   jobSets: JobSet[]
   selectedJobSets: Map<string, JobSet>
@@ -31,6 +41,7 @@ export type JobSetsContainerState = {
   activeOnly: boolean
   cancelJobSetsIsOpen: boolean
   reprioritizeJobSetsIsOpen: boolean
+  jobSetColumnWeights: JobSetColumnWeights
 } & JobSetsContainerParams
 
 export type JobSetsView = "job-counts" | "runtime" | "queued-time"
@@ -63,6 +74,15 @@ class JobSetsContainer extends React.Component<JobSetsContainerProps, JobSetsCon
       reprioritizeJobSetsIsOpen: false,
       newestFirst: true,
       activeOnly: false,
+      jobSetColumnWeights: {
+        jobSetId: 0.45,
+        latestSubmissionTime: 0.15,
+        jobsQueued: 0.08,
+        jobsPending: 0.08,
+        jobsRunning: 0.08,
+        jobsSucceeded: 0.08,
+        jobsFailed: 0.08,
+      },
     }
 
     this.setQueue = this.setQueue.bind(this)
@@ -299,6 +319,7 @@ class JobSetsContainer extends React.Component<JobSetsContainerProps, JobSetsCon
           queue={this.state.queue}
           view={this.state.currentView}
           jobSets={this.state.jobSets}
+          jobSetColumnWeights={this.state.jobSetColumnWeights}
           selectedJobSets={this.state.selectedJobSets}
           getJobSetsRequestStatus={this.state.getJobSetsRequestStatus}
           autoRefresh={this.state.autoRefresh}
