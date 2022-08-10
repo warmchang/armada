@@ -6,6 +6,10 @@
     flex-direction: column;
 }
 
+.MuiContainer-root {
+    width: 80% !important;
+}
+
 .job-sets-header {
     width: 100%;
     flex: 0 1 auto;
