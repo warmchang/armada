@@ -75,13 +75,13 @@ class JobSetsContainer extends React.Component<JobSetsContainerProps, JobSetsCon
       newestFirst: true,
       activeOnly: false,
       jobSetColumnWeights: {
-        jobSetId: 0.45,
+        jobSetId: 0.35,
         latestSubmissionTime: 0.15,
-        jobsQueued: 0.08,
-        jobsPending: 0.08,
-        jobsRunning: 0.08,
-        jobsSucceeded: 0.08,
-        jobsFailed: 0.08,
+        jobsQueued: 0.1,
+        jobsPending: 0.1,
+        jobsRunning: 0.1,
+        jobsSucceeded: 0.1,
+        jobsFailed: 0.1,
       },
     }
 

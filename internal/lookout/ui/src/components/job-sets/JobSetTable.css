@@ -2,6 +2,10 @@
     text-align: center;
 }
 
+.job-set-table-job-set-name-cell {
+    white-space: normal !important;
+}
+
 .job-set-table-number-cell {
     text-align: right;
     padding-right: 1em;
@@ -10,4 +14,43 @@
 .job-set-submission-time-header-cell {
     font-weight: 700;
     text-transform: uppercase;
+}
+
+.ReactVirtualized__Table {
+    display: inline-block;
+}
+
+.ReactVirtualized__Table__headerColumn {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    padding: 0;
+}
+
+.ReactVirtualized__Table__headerTruncatedText {
+    flex: auto;
+}
+
+.DragHandle {
+    flex: 0 0 16px;
+    z-index: 2;
+    cursor: col-resize;
+    color: #0085ff;
+}
+.DragHandle:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.DragHandleActive,
+.DragHandleActive:hover {
+    color: #0b6fcc;
+    z-index: 3;
+}
+
+.DragHandleIcon {
+    flex: 0 0 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
