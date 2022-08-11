@@ -3,7 +3,6 @@
 }
 
 .job-set-table-job-set-name-cell {
-    white-space: normal !important;
 }
 
 .job-set-table-number-cell {
@@ -48,6 +47,7 @@
 }
 
 .DragHandleIcon {
+    transform: translate(0) !important;
     flex: 0 0 12px;
     display: flex;
     flex-direction: column;

@@ -2,6 +2,7 @@ import React from "react"
 
 import { RouteComponentProps, withRouter } from "react-router-dom"
 
+import { defaultColumnWeights } from "../components/job-sets/JobSetTable"
 import JobSets from "../components/job-sets/JobSets"
 import IntervalService from "../services/IntervalService"
 import JobService, { GetJobSetsRequest, JobSet } from "../services/JobService"
@@ -41,7 +42,7 @@ export type JobSetsContainerState = {
   activeOnly: boolean
   cancelJobSetsIsOpen: boolean
   reprioritizeJobSetsIsOpen: boolean
-  jobSetColumnWeights: JobSetColumnWeights
+  jobSetColumnWeights: Map<string, number>
 } & JobSetsContainerParams
 
 export type JobSetsView = "job-counts" | "runtime" | "queued-time"
@@ -61,7 +62,6 @@ class JobSetsContainer extends React.Component<JobSetsContainerProps, JobSetsCon
     this.autoRefreshService = new IntervalService(props.jobSetsAutoRefreshMs)
     this.localStorageService = new JobSetsLocalStorageService()
     this.queryParamsService = new JobSetsQueryParamsService(this.props)
-
     this.state = {
       queue: "",
       jobSets: [],
@@ -74,15 +74,7 @@ class JobSetsContainer extends React.Component<JobSetsContainerProps, JobSetsCon
       reprioritizeJobSetsIsOpen: false,
       newestFirst: true,
       activeOnly: false,
-      jobSetColumnWeights: {
-        jobSetId: 0.35,
-        latestSubmissionTime: 0.15,
-        jobsQueued: 0.1,
-        jobsPending: 0.1,
-        jobsRunning: 0.1,
-        jobsSucceeded: 0.1,
-        jobsFailed: 0.1,
-      },
+      jobSetColumnWeights: defaultColumnWeights,
     }
 
     this.setQueue = this.setQueue.bind(this)
@@ -94,6 +86,7 @@ class JobSetsContainer extends React.Component<JobSetsContainerProps, JobSetsCon
     this.shiftSelectJobSet = this.shiftSelectJobSet.bind(this)
     this.deselectAll = this.deselectAll.bind(this)
     this.selectAll = this.selectAll.bind(this)
+    this.updateColumnWeights = this.updateColumnWeights.bind(this)
 
     this.openCancelJobSets = this.openCancelJobSets.bind(this)
     this.openReprioritizeJobSets = this.openReprioritizeJobSets.bind(this)
@@ -198,7 +191,15 @@ class JobSetsContainer extends React.Component<JobSetsContainerProps, JobSetsCon
     })
   }
 
+  updateColumnWeights(columnWeights: Map<string, number>) {
+    this.setState({
+      ...this.state,
+      jobSetColumnWeights: columnWeights,
+    })
+  }
+
   selectAll() {
+    console.log("Select all")
     const selected = new Map<string, JobSet>()
     this.state.jobSets.forEach((jobSet) => selected.set(jobSet.jobSetId, jobSet))
 
@@ -338,6 +339,7 @@ class JobSetsContainer extends React.Component<JobSetsContainerProps, JobSetsCon
           onCancelJobSetsClick={() => this.openCancelJobSets(true)}
           onToggleAutoRefresh={this.toggleAutoRefresh}
           onReprioritizeJobSetsClick={() => this.openReprioritizeJobSets(true)}
+          onColumnWeightUpdate={this.updateColumnWeights}
         />
       </>
     )

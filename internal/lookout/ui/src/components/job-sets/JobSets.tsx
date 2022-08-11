@@ -17,7 +17,7 @@ import CancelIcon from "@material-ui/icons/Cancel"
 import LowPriority from "@material-ui/icons/LowPriority"
 import { AutoSizer } from "react-virtualized"
 
-import { JobSetsView, isJobSetsView, JobSetColumnWeights } from "../../containers/JobSetsContainer"
+import { JobSetsView, isJobSetsView } from "../../containers/JobSetsContainer"
 import { DurationStats, JobSet } from "../../services/JobService"
 import { RequestStatus } from "../../utils"
 import AutoRefreshToggle from "../AutoRefreshToggle"
@@ -38,7 +38,7 @@ interface JobSetsProps {
   canReprioritize: boolean
   newestFirst: boolean
   activeOnly: boolean
-  jobSetColumnWeights: JobSetColumnWeights
+  jobSetColumnWeights: Map<string, number>
   onQueueChange: (queue: string) => void
   onViewChange: (view: JobSetsView) => void
   onRefresh: () => void
@@ -52,6 +52,7 @@ interface JobSetsProps {
   onReprioritizeJobSetsClick: () => void
   onOrderChange: (newestFirst: boolean) => void
   onActiveOnlyChange: (activeOnly: boolean) => void
+  onColumnWeightUpdate: (columnWeights: Map<string, number>) => void
 }
 
 const menuProps: Partial<MenuProps> = {
@@ -81,6 +82,7 @@ export default function JobSets(props: JobSetsProps) {
       onDeselectAllClick={props.onDeselectAllClick}
       onSelectAllClick={props.onSelectAllClick}
       onOrderChange={props.onOrderChange}
+      onColumnWeightUpdate={props.onColumnWeightUpdate}
     />
   )
   if (props.view === "queued-time") {

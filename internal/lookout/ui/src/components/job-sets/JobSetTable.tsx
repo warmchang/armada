@@ -5,15 +5,33 @@ import { TableCellProps, Table } from "react-virtualized"
 import { Column, defaultTableCellRenderer } from "react-virtualized"
 import { TableHeaderProps } from "react-virtualized/dist/es/Table"
 
-import { JobSetColumnWeights } from "../../containers/JobSetsContainer"
 import { JobSet } from "../../services/JobService"
 import CheckboxHeaderRow from "../CheckboxHeaderRow"
 import CheckboxRow from "../CheckboxRow"
 import LinkCell from "../LinkCell"
 import SortableHeaderCell from "../SortableHeaderCell"
 import "./JobSetTable.css"
+import ResizableSortableHeaderCell from "./ResizableSortableHeaderCell"
 
-interface JobSetTableProps {
+const jobSetColumnId = "jobSetId"
+const submissionTimeColumnId = "submissionTime"
+const jobsQueuedColumnId = "jobsQueued"
+const jobsPendingColumnId = "jobsPending"
+const jobsRunningColumnId = "jobsRunning"
+const jobsSucceededColumnId = "jobsSucceeded"
+const jobsFailedColumnId = "jobsFailed"
+
+export const defaultColumnWeights = new Map<string, number>([
+  [jobSetColumnId, 0.35],
+  [submissionTimeColumnId, 0.15],
+  [jobsQueuedColumnId, 0.1],
+  [jobsPendingColumnId, 0.1],
+  [jobsRunningColumnId, 0.1],
+  [jobsSucceededColumnId, 0.1],
+  [jobsFailedColumnId, 0.1],
+])
+
+export interface JobSetTableProps {
   height: number
   width: number
   jobSets: JobSet[]
@@ -25,10 +43,16 @@ interface JobSetTableProps {
   onDeselectAllClick: () => void
   onSelectAllClick: () => void
   onOrderChange: (newestFirst: boolean) => void
-  columnWeights: JobSetColumnWeights
+  columnWeights: Map<string, number>
+  onColumnWeightUpdate: (columnWeights: Map<string, number>) => void
 }
 
-function headerRenderer(tableHeaderProps: TableHeaderProps, tableProps: JobSetTableProps) {
+function headerRenderer(
+  tableHeaderProps: TableHeaderProps,
+  tableProps: JobSetTableProps,
+  columnId: string,
+  nextColumnId: string,
+) {
   return (
     <React.Fragment key={tableHeaderProps.dataKey}>
       <div className="ReactVirtualized__Table__headerTruncatedText">{tableHeaderProps.label}</div>
@@ -37,13 +61,39 @@ function headerRenderer(tableHeaderProps: TableHeaderProps, tableProps: JobSetTa
         defaultClassName="DragHandle"
         defaultClassNameDragging="DragHandleActive"
         onDrag={(event, { deltaX }) => {
-          console.log(deltaX)
+          onColumnDrag(
+            deltaX,
+            tableProps.width,
+            tableProps.columnWeights,
+            tableProps.onColumnWeightUpdate,
+            columnId,
+            nextColumnId,
+          )
         }}
       >
         <span className="DragHandleIcon">⋮</span>
       </Draggable>
     </React.Fragment>
   )
+}
+
+function onColumnDrag(
+  deltaX: number,
+  totalWidth: number,
+  currentState: Map<string, number>,
+  updateState: (state: Map<string, number>) => void,
+  columnId: string,
+  nextColumnId: string,
+) {
+  if (currentState.has(columnId) && currentState.has(nextColumnId)) {
+    const newValue = new Map<string, number>(currentState)
+    const percentDelta = deltaX / totalWidth
+    newValue.set(columnId, currentState.get(columnId)! + percentDelta)
+    newValue.set(nextColumnId, currentState.get(nextColumnId)! - percentDelta)
+    updateState(newValue)
+  } else {
+    console.error("Not updating columns as could not find columns being altered")
+  }
 }
 
 function cellRendererForState(
@@ -58,6 +108,7 @@ function cellRendererForState(
 }
 
 export default function JobSetTable(props: JobSetTableProps) {
+  console.log("Render called")
   return (
     <div
       style={{
@@ -100,62 +151,72 @@ export default function JobSetTable(props: JobSetTableProps) {
         <Column
           dataKey="jobSetId"
           className="job-set-table-job-set-name-cell"
-          headerRenderer={(headerProps) => headerRenderer(headerProps, props)}
-          width={props.columnWeights.jobSetId * props.width}
+          headerRenderer={(headerProps) => headerRenderer(headerProps, props, jobSetColumnId, submissionTimeColumnId)}
+          width={props.columnWeights.get(jobSetColumnId)! * props.width}
           label="Job Set"
         />
         <Column
           dataKey="latestSubmissionTime"
-          width={props.columnWeights.latestSubmissionTime * props.width}
+          width={props.columnWeights.get(submissionTimeColumnId)! * props.width}
           label="Submission Time"
           headerRenderer={(cellProps) => (
-            <SortableHeaderCell
+            <ResizableSortableHeaderCell
+              totalWidth={props.width}
+              currentState={props.columnWeights}
+              updateState={props.onColumnWeightUpdate}
+              columnId={submissionTimeColumnId}
+              nextColumnId={jobsQueuedColumnId}
               name="Submission Time"
               descending={props.newestFirst}
               className="job-set-submission-time-header-cell"
               onOrderChange={props.onOrderChange}
+              onColumnResize={onColumnDrag}
               {...cellProps}
             />
           )}
         />
         <Column
           dataKey="jobsQueued"
-          width={props.columnWeights.jobsQueued * props.width}
+          width={props.columnWeights.get(jobsQueuedColumnId)! * props.width}
           label="Queued"
           className="job-set-table-number-cell"
-          headerRenderer={(headerProps) => headerRenderer(headerProps, props)}
+          headerRenderer={(headerProps) => headerRenderer(headerProps, props, jobsQueuedColumnId, jobsPendingColumnId)}
           cellRenderer={(cellProps) => cellRendererForState(cellProps, props.onJobSetClick, "Queued")}
         />
         <Column
           dataKey="jobsPending"
-          width={props.columnWeights.jobsPending * props.width}
+          width={props.columnWeights.get(jobsPendingColumnId)! * props.width}
           label="Pending"
           className="job-set-table-number-cell"
-          headerRenderer={(headerProps) => headerRenderer(headerProps, props)}
+          headerRenderer={(headerProps) => headerRenderer(headerProps, props, jobsPendingColumnId, jobsRunningColumnId)}
           cellRenderer={(cellProps) => cellRendererForState(cellProps, props.onJobSetClick, "Pending")}
         />
         <Column
           dataKey="jobsRunning"
-          width={props.columnWeights.jobsRunning * props.width}
+          width={props.columnWeights.get(jobsRunningColumnId)! * props.width}
           label="Running"
           className="job-set-table-number-cell"
-          headerRenderer={(headerProps) => headerRenderer(headerProps, props)}
+          headerRenderer={(headerProps) =>
+            headerRenderer(headerProps, props, jobsRunningColumnId, jobsSucceededColumnId)
+          }
           cellRenderer={(cellProps) => cellRendererForState(cellProps, props.onJobSetClick, "Running")}
         />
         <Column
           dataKey="jobsSucceeded"
-          width={props.columnWeights.jobsSucceeded * props.width}
+          width={props.columnWeights.get(jobsSucceededColumnId)! * props.width}
           label="Succeeded"
           className="job-set-table-number-cell"
-          headerRenderer={(headerProps) => headerRenderer(headerProps, props)}
+          headerRenderer={(headerProps) =>
+            headerRenderer(headerProps, props, jobsSucceededColumnId, jobsFailedColumnId)
+          }
           cellRenderer={(cellProps) => cellRendererForState(cellProps, props.onJobSetClick, "Succeeded")}
         />
         <Column
           dataKey="jobsFailed"
-          width={props.columnWeights.jobsFailed * props.width}
+          width={props.columnWeights.get(jobsFailedColumnId)! * props.width}
           label="Failed"
           className="job-set-table-number-cell"
-          headerRenderer={(headerProps) => headerRenderer(headerProps, props)}
+          cellRenderer={(cellProps) => cellRendererForState(cellProps, props.onJobSetClick, "Failed")}
         />
       </Table>
     </div>
