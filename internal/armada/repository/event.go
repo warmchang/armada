@@ -87,17 +87,31 @@ func extractEvents(data []byte, queue, jobSetId string, decompressor *compress.Z
 	return apimessages.FromEventSequence(es)
 }
 
-func (repo *LegacyRedisEventRepository) GetLastMessageId(queue, jobSetId string) (string, error) {
+func (repo *RedisEventRepository) GetLastMessageId(queue, jobSetId string) (string, error) {
 	msg, err := repo.db.XRevRangeN(getJobSetEventsKey(queue, jobSetId), "+", "-", 1).Result()
 	if err != nil {
 		return "", errors.Wrap(err, "Error retrieving the last message id from Redis")
 	}
 	if len(msg) > 0 {
-		return msg[0].ID, nil
+		data := msg[0].Values[dataKey]
+		bytes := []byte(data.(string))
+		// TODO: here we decompress all the events we fetched from the db- it would be much better
+		// If we could decompress lazily, but the interface confines us somewhat here
+		apiEvents, err := extractEvents(bytes, queue, jobSetId, decompressor)
+		if err != nil {
+			return nil, err
+		}
+		for i, msg := range apiEvents {
+			msgId, err := sequence.FromRedisId(m.ID, i, i == len(apiEvents)-1)
+			if err != nil {
+				return nil, err
+			}
+			messages = append(messages, &api.EventStreamMessage{Id: msgId.ToString(), Message: msg})
+		}
 	}
 	return "0", nil
 }
 
-func (repo *LegacyRedisEventRepository) getJobSetEventsKey(queue, jobSetId string) string {
+func (repo *RedisEventRepository) getJobSetEventsKey(queue, jobSetId string) string {
 	return eventStreamPrefix + queue + ":" + jobSetId
 }

@@ -33,7 +33,7 @@ func TestCheckStreamExists(t *testing.T) {
 
 func TestReadEvents(t *testing.T) {
 
-	withRedisEventRepository(func(r *RedisEventRepository) {
+	withRedisEventRepository(func(r *LegacyRedisEventRepository) {
 		created := time.Now().UTC()
 		event := createEvent("test", "jobset", created)
 		err := r.ReportEvents([]*api.EventMessage{event})
@@ -59,7 +59,7 @@ func TestFailedEventCompressed(t *testing.T) {
 		},
 	}
 
-	withRedisEventRepository(func(r *RedisEventRepository) {
+	withRedisEventRepository(func(r *LegacyRedisEventRepository) {
 		err := r.ReportEvents([]*api.EventMessage{failedEvent})
 		assert.NoError(t, err)
 		// This is a bit annoying- ReportEvents nulls out jobset and queue.
