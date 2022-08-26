@@ -5,7 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/G-Research/armada/internal/armada/repository/sequence"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/G-Research/armada/internal/eventapi/model"
+	"github.com/G-Research/armada/internal/eventapi/serving"
 
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc/codes"
@@ -19,24 +22,26 @@ import (
 )
 
 type EventServer struct {
-	permissions        authorization.PermissionChecker
-	eventRepository    repository.EventRepository
-	newEventRepository repository.RedisEventRepository
-	queueRepository    repository.QueueRepository
-	eventStore         repository.EventStore
+	permissions     authorization.PermissionChecker
+	eventRepository repository.EventRepository
+	queueRepository repository.QueueRepository
+	eventStore      repository.EventStore
+	eventApi        *serving.EventApi
 }
 
 func NewEventServer(
 	permissions authorization.PermissionChecker,
 	eventRepository repository.EventRepository,
 	eventStore repository.EventStore,
-	queueRepository repository.QueueRepository) *EventServer {
-
+	queueRepository repository.QueueRepository,
+	eventApi *serving.EventApi,
+) *EventServer {
 	return &EventServer{
 		permissions:     permissions,
 		eventRepository: eventRepository,
 		eventStore:      eventStore,
 		queueRepository: queueRepository,
+		eventApi:        eventApi,
 	}
 }
 
@@ -69,6 +74,26 @@ func (s *EventServer) GetJobSetEvents(request *api.JobSetRequest, stream api.Eve
 		return status.Errorf(codes.PermissionDenied, "[GetJobSetEvents] %s", err)
 	}
 
+	if request.ForceRedis || s.eventApi == nil || !model.IsValidExternalSeqNo(request.FromMessageId) {
+		return s.serveEventsFromRepository(request, stream)
+	} else {
+		return s.serveEventsFromEventApi(request, stream)
+	}
+}
+
+func (s *EventServer) Watch(req *api.WatchRequest, stream api.Event_WatchServer) error {
+	request := &api.JobSetRequest{
+		Id:             req.JobSetId,
+		Watch:          true,
+		FromMessageId:  req.FromId,
+		Queue:          req.Queue,
+		ErrorIfMissing: true,
+		ForceRedis:     req.ForceRedis,
+	}
+	return s.GetJobSetEvents(request, stream)
+}
+
+func (s *EventServer) serveEventsFromRepository(request *api.JobSetRequest, stream api.Event_GetJobSetEventsServer) error {
 	if request.ErrorIfMissing {
 		exists, err := s.eventRepository.CheckStreamExists(request.Queue, request.Id)
 		if err != nil {
@@ -82,7 +107,7 @@ func (s *EventServer) GetJobSetEvents(request *api.JobSetRequest, stream api.Eve
 	fromId := request.FromMessageId
 
 	var timeout time.Duration = -1
-	var stopAfter = ""
+	stopAfter := ""
 	if request.Watch {
 		timeout = 5 * time.Second
 	} else {
@@ -123,64 +148,11 @@ func (s *EventServer) GetJobSetEvents(request *api.JobSetRequest, stream api.Eve
 	}
 }
 
-func (s *EventServer) GetJobSetEventsFromRedis(request *api.JobSetRequest, stream api.Event_GetJobSetEventsServer) error {
-
-	fromId, err := sequence.Parse(request.FromMessageId)
-	if err != nil {
-		return status.Errorf(codes.Unavailable, "[GetJobSetEvents] error parsing sequence: %s", err)
+func (s *EventServer) serveEventsFromEventApi(request *api.JobSetRequest, stream api.Event_GetJobSetEventsServer) error {
+	if request.ErrorIfMissing {
+		log.Warnf("Requested to error if stream missing, but evntApi is async and so does not know this information")
 	}
-
-	var timeout time.Duration = -1
-	var stopAfter = sequence.Max()
-	if request.Watch {
-		timeout = 5 * time.Second
-	} else {
-		lastId, err := s.newEventRepository.GetLastMessageId(request.Queue, request.Id)
-		if err != nil {
-			return status.Errorf(codes.Unavailable, "[GetJobSetEvents] error getting ID of last message: %s", err)
-		}
-		stopAfter = lastId
-	}
-
-	for {
-		select {
-		case <-stream.Context().Done():
-			return nil
-		default:
-		}
-
-		messages, err := s.newEventRepository.ReadEvents(request.Queue, request.Id, fromId, 500, timeout)
-		if err != nil {
-			return status.Errorf(codes.Unavailable, "[GetJobSetEvents] error reading events: %s", err)
-		}
-
-		stop := len(messages) == 0
-		for _, msg := range messages {
-			fromId = msg.Id
-			if fromId == stopAfter {
-				stop = true
-			}
-			err = stream.Send(msg)
-			if err != nil {
-				return status.Errorf(codes.Unavailable, "[GetJobSetEvents] error sending event: %s", err)
-			}
-		}
-
-		if !request.Watch && stop {
-			return nil
-		}
-	}
-}
-
-func (s *EventServer) Watch(req *api.WatchRequest, stream api.Event_WatchServer) error {
-	request := &api.JobSetRequest{
-		Id:             req.JobSetId,
-		Watch:          true,
-		FromMessageId:  req.FromId,
-		Queue:          req.Queue,
-		ErrorIfMissing: true,
-	}
-	return s.GetJobSetEvents(request, stream)
+	return s.eventApi.GetJobSetEvents(request, stream)
 }
 
 func validateUserHasWatchPermissions(ctx context.Context, permsChecker authorization.PermissionChecker, q queue.Queue, jobSetId string) error {

@@ -9,7 +9,6 @@ import (
 )
 
 type EventIngesterConfiguration struct {
-
 	// Database configuration
 	Redis redis.UniversalOptions
 	// General Pulsar configuration
