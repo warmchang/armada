@@ -87,12 +87,12 @@ func IsValid(str string) bool {
 }
 
 func (e *ExternalSeqNo) ToString() string {
-	return fmt.Sprintf("%d-%d-%d-%d", e.Time, e.Seq, e.SubSeq, e.Last)
+	return fmt.Sprintf("%d-%d-%d-%d", e.Time, e.Seq, e.SubSeq, boolToInt(e.Last))
 }
 
 func (e *ExternalSeqNo) PrevRedisId() string {
 	var seq *ExternalSeqNo
-	if e.Last {
+	if !e.Last && e.Time != 0 {
 		seq = &ExternalSeqNo{e.Time - 1, math.MaxInt64, 0, true}
 	} else {
 		seq = e
@@ -120,4 +120,12 @@ func (e *ExternalSeqNo) IsAfter(other *ExternalSeqNo) bool {
 	}
 
 	return false
+}
+
+func boolToInt(b bool) int8 {
+	if b {
+		return 1
+	} else {
+		return 0
+	}
 }

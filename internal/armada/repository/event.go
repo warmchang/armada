@@ -1,16 +1,18 @@
 package repository
 
 import (
+	"context"
+	"math"
 	"time"
-
-	"github.com/G-Research/armada/internal/armada/repository/sequence"
-
-	"github.com/G-Research/armada/internal/common/compress"
 
 	"github.com/go-redis/redis"
 	"github.com/gogo/protobuf/proto"
+	pool "github.com/jolestar/go-commons-pool"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 
+	"github.com/G-Research/armada/internal/armada/repository/sequence"
+	"github.com/G-Research/armada/internal/common/compress"
 	"github.com/G-Research/armada/internal/eventapi/serving/apimessages"
 	"github.com/G-Research/armada/pkg/api"
 	"github.com/G-Research/armada/pkg/armadaevents"
@@ -26,13 +28,48 @@ type EventRepository interface {
 }
 
 type RedisEventRepository struct {
-	db redis.UniversalClient
+	db               redis.UniversalClient
+	decompressorPool *pool.ObjectPool
 }
 
-func (repo *RedisEventRepository) ReadEvents(queue string, jobSetId string, from *sequence.ExternalSeqNo, limit int64, block time.Duration) ([]byte, error) {
+func NewEventRepository(db redis.UniversalClient) *RedisEventRepository {
+	// This is basically the default config but with a max of 100 rather than 8 and a min of 10 rather than 0.
+	poolConfig := pool.ObjectPoolConfig{
+		MaxTotal:                 100,
+		MaxIdle:                  50,
+		MinIdle:                  10,
+		BlockWhenExhausted:       true,
+		MinEvictableIdleTime:     30 * time.Minute,
+		SoftMinEvictableIdleTime: math.MaxInt64,
+		TimeBetweenEvictionRuns:  0,
+		NumTestsPerEvictionRun:   10,
+	}
 
+	decompressorPool := pool.NewObjectPool(context.Background(), pool.NewPooledObjectFactorySimple(
+		func(context.Context) (interface{}, error) {
+			return compress.NewZlibDecompressor()
+		}), &poolConfig)
+
+	return &RedisEventRepository{db: db, decompressorPool: decompressorPool}
+}
+
+func (repo *RedisEventRepository) CheckStreamExists(queue string, jobSetId string) (bool, error) {
+	result, err := repo.db.Exists(repo.getJobSetEventsKey(queue, jobSetId)).Result()
+	if err != nil {
+		return false, err
+	}
+	exists := result > 0
+	return exists, nil
+}
+
+func (repo *RedisEventRepository) ReadEvents(queue string, jobSetId string, lastId string, limit int64, block time.Duration) ([]*api.EventStreamMessage, error) {
+	from, err := sequence.Parse(lastId)
+	if err != nil {
+		return nil, err
+	}
+	seqId := from.PrevRedisId()
 	cmd, err := repo.db.XRead(&redis.XReadArgs{
-		Streams: []string{repo.getJobSetEventsKey(queue, jobSetId), from.PrevRedisId()},
+		Streams: []string{repo.getJobSetEventsKey(queue, jobSetId), seqId},
 		Count:   limit,
 		Block:   block,
 	}).Result()
@@ -44,19 +81,11 @@ func (repo *RedisEventRepository) ReadEvents(queue string, jobSetId string, from
 		return nil, errors.WithStack(err)
 	}
 
-	//TODO: find some way of sharing the decompressor
-	decompressor, err := compress.NewZlibDecompressor()
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	messages := make([]*api.EventStreamMessage, 0)
+	messages := make([]*api.EventStreamMessage, 0, len(cmd[0].Messages))
 	for _, m := range cmd[0].Messages {
-		data := m.Values[dataKey]
-		bytes := []byte(data.(string))
 		// TODO: here we decompress all the events we fetched from the db- it would be much better
 		// If we could decompress lazily, but the interface confines us somewhat here
-		apiEvents, err := extractEvents(bytes, queue, jobSetId, decompressor)
+		apiEvents, err := repo.extractEvents(m, queue, jobSetId)
 		if err != nil {
 			return nil, err
 		}
@@ -65,14 +94,47 @@ func (repo *RedisEventRepository) ReadEvents(queue string, jobSetId string, from
 			if err != nil {
 				return nil, err
 			}
-			messages = append(messages, &api.EventStreamMessage{Id: msgId.ToString(), Message: msg})
+			if msgId.IsAfter(from) {
+				messages = append(messages, &api.EventStreamMessage{Id: msgId.ToString(), Message: msg})
+			}
 		}
 	}
 	return messages, nil
 }
 
-func extractEvents(data []byte, queue, jobSetId string, decompressor *compress.ZlibDecompressor) ([]*api.EventMessage, error) {
-	decompressedData, err := decompressor.Decompress(data)
+func (repo *RedisEventRepository) GetLastMessageId(queue, jobSetId string) (string, error) {
+	msg, err := repo.db.XRevRangeN(getJobSetEventsKey(queue, jobSetId), "+", "-", 1).Result()
+	if err != nil {
+		return "", errors.Wrap(err, "Error retrieving the last message id from Redis")
+	}
+	if len(msg) > 0 {
+		apiEvents, err := repo.extractEvents(msg[0], queue, jobSetId)
+		if err != nil {
+			return "", err
+		}
+		msgId, err := sequence.FromRedisId(msg[0].ID, len(apiEvents)-1, true)
+		if err != nil {
+			return "", err
+		}
+		return msgId.ToString(), nil
+	}
+	return "0", nil
+}
+
+func (repo *RedisEventRepository) extractEvents(msg redis.XMessage, queue, jobSetId string) ([]*api.EventMessage, error) {
+	data := msg.Values[dataKey]
+	bytes := []byte(data.(string))
+	decompressor, err := repo.decompressorPool.BorrowObject(context.Background())
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	defer func(decompressorPool *pool.ObjectPool, ctx context.Context, object interface{}) {
+		err := decompressorPool.ReturnObject(ctx, object)
+		if err != nil {
+			log.WithError(err).Errorf("Error returning decompressor to pool")
+		}
+	}(repo.decompressorPool, context.Background(), decompressor)
+	decompressedData, err := decompressor.(compress.Decompressor).Decompress(bytes)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -85,31 +147,6 @@ func extractEvents(data []byte, queue, jobSetId string, decompressor *compress.Z
 	es.Queue = queue
 	es.JobSetName = jobSetId
 	return apimessages.FromEventSequence(es)
-}
-
-func (repo *RedisEventRepository) GetLastMessageId(queue, jobSetId string) (string, error) {
-	msg, err := repo.db.XRevRangeN(getJobSetEventsKey(queue, jobSetId), "+", "-", 1).Result()
-	if err != nil {
-		return "", errors.Wrap(err, "Error retrieving the last message id from Redis")
-	}
-	if len(msg) > 0 {
-		data := msg[0].Values[dataKey]
-		bytes := []byte(data.(string))
-		// TODO: here we decompress all the events we fetched from the db- it would be much better
-		// If we could decompress lazily, but the interface confines us somewhat here
-		apiEvents, err := extractEvents(bytes, queue, jobSetId, decompressor)
-		if err != nil {
-			return nil, err
-		}
-		for i, msg := range apiEvents {
-			msgId, err := sequence.FromRedisId(m.ID, i, i == len(apiEvents)-1)
-			if err != nil {
-				return nil, err
-			}
-			messages = append(messages, &api.EventStreamMessage{Id: msgId.ToString(), Message: msg})
-		}
-	}
-	return "0", nil
 }
 
 func (repo *RedisEventRepository) getJobSetEventsKey(queue, jobSetId string) string {
