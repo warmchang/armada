@@ -1,6 +1,6 @@
 import React from "react"
 
-import { ThemeProvider, createMuiTheme } from "@material-ui/core"
+import { ThemeProvider, createTheme } from "@material-ui/core"
 import { Route, BrowserRouter as Router, Switch } from "react-router-dom"
 
 import NavBar from "./components/NavBar"
@@ -20,7 +20,7 @@ type AppProps = {
   jobsAutoRefreshMs: number
 }
 
-const theme = createMuiTheme({
+const theme = createTheme({
   palette: {
     primary: {
       main: "#00aae1",

@@ -137,7 +137,11 @@ export function tryParseJson(json: string): Record<string, unknown> | undefined 
   try {
     return JSON.parse(json) as Record<string, unknown>
   } catch (e) {
-    console.error(e.message)
+    if (e instanceof SyntaxError) {
+      console.error(e.message)
+    } else {
+      console.error(e)
+    }
     return undefined
   }
 }

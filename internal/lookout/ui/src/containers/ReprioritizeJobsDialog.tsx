@@ -66,8 +66,10 @@ export default function ReprioritizeJobsDialog(props: ReprioritizeJobsProps) {
       aria-labelledby="reprioritize-jobs-modal-title"
       aria-describedby="reprioritize-jobs-modal-description"
       onClose={props.onClose}
-      onExited={cleanup}
       maxWidth={"md"}
+      TransitionProps={{
+        onExited: cleanup,
+      }}
     >
       <DialogTitle id="reprioritize-jobs-dialog-title">Reprioritize Jobs</DialogTitle>
       <DialogContent className="lookout-dialog">
