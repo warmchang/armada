@@ -9,6 +9,10 @@ dbPruneSchedule: '"@hourly"'
 prometheus:
   enabled: true
 
+resources:
+  requests:
+    cpu: 100m
+
 applicationConfig:
   nats:
     servers:
