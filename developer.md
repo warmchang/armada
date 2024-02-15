@@ -9,7 +9,7 @@ This document is intended for developers who want to contribute to the project. 
 Want to quickly get Armada running and test it? Install the [Pre-requisites](#pre-requisites) and then run:
 
 ```bash
-mage localdev minimal-pulsar testsuite
+mage localdev minimal testsuite
 ```
 
 To get the UI running, run:
@@ -76,10 +76,10 @@ LocalDev provides a reliable and extendable way to install Armada as a developer
 It has the following options to customize further steps:
 
 * `mage localdev full` - Runs all components of Armada, including the Lookout UI.
-* `mage localdev minimal-pulsar` - Runs only the core components of Armada (such as the API server and an executor).
+* `mage localdev minimal` - Runs only the core components of Armada (such as the API server and an executor).
 * `mage localdev no-build` - Skips the build step; set `ARMADA_IMAGE` and `ARMADA_TAG` to choose the Docker image to use.
 
-`mage localdev minimal-pulsar` is what is used to test the CI pipeline, and is the recommended way to test changes to the core components of Armada.
+`mage localdev minimal` is what is used to test the CI pipeline, and is the recommended way to test changes to the core components of Armada.
 
 ## Debug error saying that the (port 6443 is already in use) after running mage localdev full
 
@@ -137,7 +137,7 @@ For more information see the [UI Developer Guide](./developer/ui.md).
 You can set the `ARMADA_COMPONENTS` environment variable to choose which components to run. It is a comma separated list of components to run. For example, to run only the server and executor, you can run:
 
 ```bash
-export ARMADA_COMPONENTS="server-legacy,executor-legacy"
+export ARMADA_COMPONENTS="server,executor"
 ```
 
 ### Running Pulsar backed scheduler with LocalDev
@@ -150,7 +150,7 @@ mage LocalDevStop
 And then run
 
 ```bash
-mage LocalDev minimal-pulsar
+mage LocalDev minimal
 ```
 
 Ensure your local dev environment is completely torn down when switching between pulsar backed and legacy
@@ -229,6 +229,24 @@ External Debug Port Mappings:
 |lookoutingesterv2  |localhost:4007|
 |jobservice         |localhost:4008|
 
+
+## GoLand Run Configurations
+
+We provide a number of run configurations within the `.run` directory of this project. These will be accessible when opening the project in GoLand, allowing you to run Armada in both standard and debug mode.
+
+The following high-level configurations are provided, each composed of sub-configurations:
+1. `Armada Infrastructure Services`
+    - Runs Infrastructure Services required to run Armada, irrespective of scheduler type
+2. `Armada (Legacy Scheduler)`
+   - Runs Armada with the Legacy Scheduler
+3. `Armada (Pulsar Scheduler)`
+   - Runs Armada with the Pulsar Scheduler (recommended)
+4. `LookoutV2 UI`
+   - Script which configures a local UI development setup
+
+A minimal local Armada setup using these configurations would be `Armada Infrastructure Services` and one of (`Armada (Legacy Scheduler)` or `Armada (Pulsar Scheduler)`). Running the `LookoutV2 UI` script on top of this configuration would allow you to develop the Lookout UI live from GoLand, and see the changes visible in your browser. **These configurations (executor specifically) require a kubernetes config in `$PROJECT_DIR$/.kube/internal/config`**
+
+GoLand does not allow us to specify an ordering for services within docker compose configurations. As a result, some database migration services may require rerunning.
 
 ### Other Debugging Methods
 
